@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TownWalk 管理画面</title>
+<meta name="robots" content="noindex,nofollow">
+<style>
+:root{
+  --ink:#3d2a18; --wood:#7a5a2e; --wood-d:#4a3418; --gold:#e8b64c;
+  --paper:#f7f2e6; --card:#fffdf7; --line:#dfd3ba;
+  --ok:#2f9e5e; --warn:#d98324; --ng:#c0392b; --info:#2b6cb0;
+  --font:"Hiragino Maru Gothic ProN","Hiragino Sans",system-ui,sans-serif;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.7;}
+a{color:var(--info);}
+header{background:var(--wood-d);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+header h1{margin:0;font-size:19px;font-weight:800;}
+header .sp{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:13px;}
+.wrap{max-width:1180px;margin:0 auto;padding:22px;}
+.tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+.tabs button{
+  font-family:var(--font);font-size:15px;font-weight:700;padding:10px 20px;cursor:pointer;
+  background:var(--card);border:2px solid var(--line);border-radius:10px 10px 0 0;color:var(--wood-d);
+}
+.tabs button.on{background:var(--wood-d);color:#fff;border-color:var(--wood-d);}
+.card{background:var(--card);border:2px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px;}
+.card h2{margin:0 0 14px;font-size:17px;font-weight:800;}
+label{display:block;font-size:13px;font-weight:700;color:#6b5a44;margin:12px 0 4px;}
+input[type=text],input[type=url],input[type=email],input[type=password],input[type=number],textarea,select{
+  width:100%;font-family:var(--font);font-size:15px;padding:9px 11px;
+  border:2px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);
+}
+textarea{min-height:78px;resize:vertical;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 18px;}
+.btn{
+  font-family:var(--font);font-size:15px;font-weight:800;padding:10px 20px;border-radius:9px;cursor:pointer;
+  border:2px solid var(--wood-d);background:var(--gold);color:var(--wood-d);
+}
+.btn.p{background:var(--ok);border-color:#1e6b3f;color:#fff;}
+.btn.d{background:#fff;border-color:var(--ng);color:var(--ng);}
+.btn.s{background:#fff;}
+.btn:disabled{opacity:.5;cursor:default;}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px;}
+table{width:100%;border-collapse:collapse;font-size:14px;}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+th{background:#efe7d5;font-size:12px;letter-spacing:.04em;color:#6b5a44;}
+tr.sel{background:#fff6dd;}
+.thumb{width:56px;height:56px;object-fit:contain;background:#eaf4fb;border:1px solid var(--line);border-radius:8px;}
+.thumb.npc{background:#f3f0e4;width:44px;height:44px;}
+.pill{display:inline-block;font-size:12px;font-weight:800;padding:2px 10px;border-radius:99px;color:#fff;}
+.pill.published{background:var(--ok);} .pill.pending{background:var(--warn);}
+.pill.rejected{background:var(--ng);} .pill.closed{background:#888;} .pill.draft{background:#aaa;}
+.picker{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+.picker label{margin:0;cursor:pointer;}
+.picker input{display:none;}
+.picker span{
+  display:block;border:3px solid var(--line);border-radius:10px;padding:5px;background:#fff;text-align:center;width:92px;
+}
+.picker input:checked + span{border-color:var(--gold);background:#fff8e6;box-shadow:0 0 0 2px #f0d79a;}
+.picker span img{width:70px;height:70px;object-fit:contain;display:block;margin:0 auto;}
+.picker span em{font-style:normal;font-size:10.5px;line-height:1.3;display:block;margin-top:3px;color:#6b5a44;}
+.msg{padding:10px 14px;border-radius:8px;margin:12px 0;font-weight:700;font-size:14px;display:none;}
+.msg.on{display:block;}
+.msg.ok{background:#e4f5ea;color:#1e6b3f;border:2px solid #9bd4b1;}
+.msg.err{background:#fbe6e4;color:#9b2c20;border:2px solid #e6a79f;}
+.hint{font-size:12.5px;color:#7b6a52;margin-top:4px;}
+.photoslot{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;}
+.photoslot .ps{border:2px dashed var(--line);border-radius:10px;padding:10px;width:230px;background:#fff;}
+.photoslot .ps img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;background:#eee;display:block;margin-bottom:8px;}
+.photoslot .ps .ph{width:100%;aspect-ratio:4/3;border-radius:6px;background:#f0ece1;display:flex;align-items:center;justify-content:center;color:#a2937c;font-size:13px;margin-bottom:8px;}
+.empty{color:#8b7a62;padding:22px;text-align:center;}
+#login{max-width:420px;margin:60px auto;}
+.hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>TownWalk 管理画面</h1>
+  <div class="sp">
+    <span id="who"></span>
+    <button class="btn s hidden" id="logout" style="padding:6px 14px;font-size:13px">ログアウト</button>
+  </div>
+</header>
+
+<!-- ============ ログイン ============ -->
+<div class="wrap" id="login">
+  <div class="card">
+    <h2>管理者ログイン</h2>
+    <div class="msg" id="loginMsg"></div>
+    <label>メールアドレス</label>
+    <input type="email" id="email" autocomplete="username">
+    <label>パスワード</label>
+    <input type="password" id="pw" autocomplete="current-password">
+    <div class="row">
+      <button class="btn p" id="doLogin">ログイン</button>
+      <button class="btn s" id="doSignup">新規登録</button>
+    </div>
+    <p class="hint">新規登録した直後は一般ユーザー権限です。管理者権限の付与は下の手順が必要です（初回のみ）。</p>
+  </div>
+</div>
+
+<!-- ============ 本体 ============ -->
+<div class="wrap hidden" id="app">
+  <div class="tabs">
+    <button data-tab="shops" class="on">ショップ管理</button>
+    <button data-tab="notices">お知らせ</button>
+    <button data-tab="titles">称号</button>
+  </div>
+  <div class="msg" id="msg"></div>
+
+  <!-- ---- ショップ ---- -->
+  <section id="tab-shops">
+    <div class="card">
+      <h2>ショップ一覧</h2>
+      <table>
+        <thead><tr>
+          <th style="width:70px">店舗画像</th><th style="width:56px">店長</th>
+          <th>店舗名</th><th style="width:110px">カテゴリ</th>
+          <th style="width:80px">階</th><th style="width:100px">状態</th>
+          <th style="width:70px">写真</th><th style="width:90px"></th>
+        </tr></thead>
+        <tbody id="shopRows"></tbody>
+      </table>
+      <div class="row"><button class="btn" id="newShop">＋ 新しいショップを追加</button></div>
+    </div>
+
+    <div class="card hidden" id="editor">
+      <h2 id="edTitle">ショップ編集</h2>
+
+      <div class="grid2">
+        <div><label>店舗名</label><input type="text" id="f_name"></div>
+        <div><label>看板の文字（建物に表示）</label><input type="text" id="f_sign" placeholder="Flower"></div>
+      </div>
+      <div class="grid2">
+        <div><label>カテゴリ</label><input type="text" id="f_cat" placeholder="花・ガーデニング"></div>
+        <div><label>掲載ステータス</label>
+          <select id="f_status">
+            <option value="pending">審査中</option>
+            <option value="published">掲載中</option>
+            <option value="rejected">差し戻し</option>
+            <option value="closed">掲載終了</option>
+            <option value="draft">下書き</option>
+          </select>
+        </div>
+      </div>
+
+      <label>紹介文</label><textarea id="f_desc"></textarea>
+
+      <label>オンラインショップURL</label>
+      <input type="url" id="f_ec" placeholder="https://example.myshopify.com">
+      <p class="hint">店内ビューの「オンラインストアへ」ボタンの遷移先です。空欄なら準備中と表示されます。</p>
+
+      <label>店舗画像</label>
+      <div class="picker" id="pickBuilding"></div>
+
+      <label>店長（オーナー）キャラクター</label>
+      <div class="picker" id="pickNpc"></div>
+
+      <div class="grid3">
+        <div><label>階</label>
+          <select id="f_floor"><option value="ground">1階</option><option value="upper">2階</option></select>
+        </div>
+        <div><label>横位置 X</label><input type="number" id="f_x" step="10"></div>
+        <div><label>店長の横ずれ</label><input type="number" id="f_npcoff" step="10"></div>
+      </div>
+      <div class="grid2">
+        <div><label>表示幅</label><input type="number" id="f_w" step="1"></div>
+        <div><label>表示高さ</label><input type="number" id="f_h" step="1"></div>
+      </div>
+      <p class="hint">1階は X=90〜2510、2階は X=380〜1510 の範囲に置いてください。</p>
+
+      <label>店内写真（2枚まで）</label>
+      <div class="photoslot" id="photoSlots"></div>
+
+      <label>店長のセリフ（1行に1つ・最大60文字）</label>
+      <textarea id="f_msgs" placeholder="いらっしゃいませ〜！&#10;今日のおすすめ、あるよ〜"></textarea>
+
+      <div class="row">
+        <button class="btn p" id="saveShop">保存</button>
+        <button class="btn s" id="cancelShop">とじる</button>
+        <button class="btn d" id="delShop" style="margin-left:auto">この店舗を削除</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---- お知らせ ---- -->
+  <section id="tab-notices" class="hidden">
+    <div class="card">
+      <h2>お知らせ投稿</h2>
+      <label>タイトル</label><input type="text" id="n_title">
+      <label>本文</label><textarea id="n_body"></textarea>
+      <div class="grid2">
+        <div><label>公開</label>
+          <select id="n_pub"><option value="true">公開する</option><option value="false">下書き</option></select>
+        </div>
+        <div><label>公開日時</label><input type="text" id="n_at" placeholder="空欄なら今すぐ"></div>
+      </div>
+      <p class="hint">タイトルはゲーム画面下部のお知らせバーに流れます。本文は「お知らせ」パネルに表示されます。</p>
+      <div class="row">
+        <button class="btn p" id="saveNotice">投稿する</button>
+        <button class="btn s hidden" id="cancelNotice">編集をやめる</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>投稿ずみ</h2>
+      <table>
+        <thead><tr><th>タイトル</th><th style="width:120px">状態</th><th style="width:170px">公開日時</th><th style="width:150px"></th></tr></thead>
+        <tbody id="noticeRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ---- 称号 ---- -->
+  <section id="tab-titles" class="hidden">
+    <div class="card">
+      <h2>称号一覧（自動付与）</h2>
+      <p class="hint" style="margin-bottom:12px">
+        スタンプが記録されるたびに条件を自動判定し、達成した称号を付与します。
+        複数持っている場合は、優先度がいちばん高いものが自動で装着されます。
+      </p>
+      <table>
+        <thead><tr><th style="width:150px">称号</th><th>獲得条件</th><th style="width:90px">優先度</th></tr></thead>
+        <tbody id="titleRows"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const C = window.TW_CONFIG;
+const sb = createClient(C.SUPABASE_URL, C.SUPABASE_KEY);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let ME = null, SHOPS = [], CUR = null, PHOTOS = [], EDIT_NOTICE = null;
+
+function flash(el, text, ok=true){
+  el.textContent = text; el.className = 'msg on ' + (ok ? 'ok' : 'err');
+  setTimeout(()=>{ el.className = 'msg'; }, 4000);
+}
+const say = (t, ok=true) => flash($('msg'), t, ok);
+
+/* ---------------- 認証 ---------------- */
+$('doLogin').onclick = async () => {
+  const { error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pw').value });
+  if (error) return flash($('loginMsg'), 'ログインできませんでした：' + error.message, false);
+  boot();
+};
+$('doSignup').onclick = async () => {
+  const { error } = await sb.auth.signUp({ email: $('email').value.trim(), password: $('pw').value });
+  if (error) return flash($('loginMsg'), '登録できませんでした：' + error.message, false);
+  flash($('loginMsg'), '登録しました。確認メールが必要な設定の場合はメールをご確認ください。');
+};
+$('logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+async function boot(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session) { $('login').classList.remove('hidden'); $('app').classList.add('hidden'); return; }
+
+  const { data: prof } = await sb.from('profiles').select('display_name, role').eq('id', session.user.id).single();
+  ME = { ...session.user, ...(prof||{}) };
+  $('who').textContent = `${session.user.email}（${prof?.role ?? 'user'}）`;
+  $('logout').classList.remove('hidden');
+
+  if (prof?.role !== 'admin'){
+    $('login').classList.remove('hidden'); $('app').classList.add('hidden');
+    flash($('loginMsg'),
+      'このアカウントには管理者権限がありません。Supabase の SQL Editor で次を実行してください：\n' +
+      `update public.profiles set role='admin' where id='${session.user.id}';`, false);
+    $('loginMsg').style.whiteSpace = 'pre-wrap';
+    return;
+  }
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  buildPickers(); await loadShops(); await loadNotices(); await loadTitles();
+}
+
+/* ---------------- タブ ---------------- */
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  ['shops','notices','titles'].forEach(t => $('tab-'+t).classList.toggle('hidden', t !== b.dataset.tab));
+});
+
+/* ---------------- 画像ピッカー ---------------- */
+function buildPickers(){
+  $('pickBuilding').innerHTML = C.BUILDINGS.map(b => `
+    <label><input type="radio" name="bkey" value="${b.key}">
+      <span><img src="assets/${b.key}.webp" alt=""><em>${esc(b.label)}</em></span></label>`).join('');
+  $('pickNpc').innerHTML = C.NPCS.map(n => `
+    <label><input type="radio" name="nkey" value="${n.key}">
+      <span><img src="assets/${n.key}.webp" alt=""><em>${esc(n.label)}</em></span></label>`).join('');
+}
+const pick = name => document.querySelector(`input[name=${name}]:checked`)?.value ?? null;
+const setPick = (name, v) => document.querySelectorAll(`input[name=${name}]`)
+  .forEach(i => i.checked = (i.value === v));
+
+/* ---------------- ショップ ---------------- */
+const STATUS_JA = { published:'掲載中', pending:'審査中', rejected:'差し戻し', closed:'掲載終了', draft:'下書き' };
+
+async function loadShops(){
+  const { data, error } = await sb.from('shops').select('*').order('floor').order('pos_x');
+  if (error) return say('読み込み失敗：' + error.message, false);
+  SHOPS = data || [];
+  const counts = {};
+  const { data: ph } = await sb.from('shop_photos').select('shop_id');
+  (ph||[]).forEach(p => counts[p.shop_id] = (counts[p.shop_id]||0) + 1);
+
+  $('shopRows').innerHTML = SHOPS.length ? SHOPS.map(s => `
+    <tr data-id="${s.id}" class="${CUR?.id===s.id?'sel':''}">
+      <td>${s.building_key ? `<img class="thumb" src="assets/${s.building_key}.webp" alt="">` : '—'}</td>
+      <td>${s.npc_key ? `<img class="thumb npc" src="assets/${s.npc_key}.webp" alt="">` : '—'}</td>
+      <td><b>${esc(s.name)}</b><br><span class="hint">${s.ec_url ? esc(s.ec_url.slice(0,44)) : 'URL未設定'}</span></td>
+      <td>${esc(s.category)}</td>
+      <td>${s.floor === 'upper' ? '2階' : '1階'} / X${s.pos_x}</td>
+      <td><span class="pill ${s.status}">${STATUS_JA[s.status]}</span></td>
+      <td>${counts[s.id]||0} / 2</td>
+      <td><button class="btn s edit" style="padding:6px 12px;font-size:13px">編集</button></td>
+    </tr>`).join('') : `<tr><td colspan="8" class="empty">ショップがありません</td></tr>`;
+
+  $('shopRows').querySelectorAll('.edit').forEach(b => b.onclick = e => {
+    openShop(SHOPS.find(s => s.id === e.target.closest('tr').dataset.id));
+  });
+}
+
+$('newShop').onclick = () => openShop({
+  name:'', sign_text:'', category:'', description:'', ec_url:'',
+  floor:'ground', pos_x:1500, display_w:250, display_h:250,
+  building_key:'shop_shop', npc_key:'npc5', npc_offset_x:-180, status:'pending'
+});
+
+async function openShop(s){
+  CUR = s;
+  $('editor').classList.remove('hidden');
+  $('edTitle').textContent = s.id ? `ショップ編集：${s.name}` : '新しいショップ';
+  $('f_name').value = s.name || ''; $('f_sign').value = s.sign_text || '';
+  $('f_cat').value = s.category || ''; $('f_desc').value = s.description || '';
+  $('f_ec').value = s.ec_url || ''; $('f_status').value = s.status || 'pending';
+  $('f_floor').value = s.floor || 'ground'; $('f_x').value = s.pos_x ?? 1500;
+  $('f_w').value = s.display_w ?? 250; $('f_h').value = s.display_h ?? 250;
+  $('f_npcoff').value = s.npc_offset_x ?? -180;
+  setPick('bkey', s.building_key); setPick('nkey', s.npc_key);
+  $('delShop').classList.toggle('hidden', !s.id);
+
+  $('f_msgs').value = '';
+  if (s.id){
+    const { data } = await sb.from('shop_messages').select('body').eq('shop_id', s.id).order('sort_order');
+    $('f_msgs').value = (data||[]).map(m => m.body).join('\n');
+  }
+  await renderPhotos();
+  $('editor').scrollIntoView({ behavior:'smooth', block:'start' });
+  await loadShops();
+}
+
+$('cancelShop').onclick = () => { CUR = null; $('editor').classList.add('hidden'); loadShops(); };
+
+$('saveShop').onclick = async () => {
+  if (!$('f_name').value.trim()) return say('店舗名を入れてください', false);
+  const payload = {
+    name:$('f_name').value.trim(), sign_text:$('f_sign').value.trim() || null,
+    category:$('f_cat').value.trim(), description:$('f_desc').value.trim(),
+    ec_url:$('f_ec').value.trim() || null, status:$('f_status').value,
+    floor:$('f_floor').value, pos_x:+$('f_x').value,
+    display_w:+$('f_w').value, display_h:+$('f_h').value,
+    npc_offset_x:+$('f_npcoff').value,
+    building_key:pick('bkey'), npc_key:pick('nkey'),
+  };
+  if (payload.status === 'published') payload.approved_at = new Date().toISOString();
+
+  let id = CUR?.id;
+  if (id){
+    const { error } = await sb.from('shops').update(payload).eq('id', id);
+    if (error) return say('保存できませんでした：' + error.message, false);
+  } else {
+    const { data, error } = await sb.from('shops').insert(payload).select('id').single();
+    if (error) return say('作成できませんでした：' + error.message, false);
+    id = data.id; CUR = { ...payload, id };
+  }
+
+  // セリフを入れ替え
+  await sb.from('shop_messages').delete().eq('shop_id', id);
+  const lines = $('f_msgs').value.split('\n').map(t => t.trim()).filter(Boolean).slice(0, 10);
+  if (lines.length){
+    await sb.from('shop_messages').insert(lines.map((body, i) => ({ shop_id:id, body:body.slice(0,60), sort_order:i })));
+  }
+  say('保存しました');
+  await loadShops(); await renderPhotos();
+};
+
+$('delShop').onclick = async () => {
+  if (!CUR?.id) return;
+  if (!confirm(`「${CUR.name}」を削除します。\nこの店舗のスタンプ記録・写真もまとめて消えます。よろしいですか？`)) return;
+  const { error } = await sb.from('shops').delete().eq('id', CUR.id);
+  if (error) return say('削除できませんでした：' + error.message, false);
+  CUR = null; $('editor').classList.add('hidden'); say('削除しました'); loadShops();
+};
+
+/* ---------------- 店内写真 ---------------- */
+const pubUrl = p => `${C.SUPABASE_URL}/storage/v1/object/public/shop-photos/${p}`;
+
+async function renderPhotos(){
+  const box = $('photoSlots');
+  if (!CUR?.id){
+    box.innerHTML = `<p class="hint">先に保存すると写真をアップロードできます。</p>`; return;
+  }
+  const { data } = await sb.from('shop_photos').select('*').eq('shop_id', CUR.id).order('sort_order');
+  PHOTOS = data || [];
+  box.innerHTML = [0,1].map(i => {
+    const p = PHOTOS[i];
+    return `<div class="ps">
+      ${p ? `<img src="${pubUrl(p.storage_path)}" alt="">` : `<div class="ph">店内写真 ${i+1}（未設定）</div>`}
+      <input type="file" accept="image/png,image/jpeg,image/webp" data-slot="${i}" style="font-size:12px;width:100%">
+      ${p ? `<button class="btn d delph" data-id="${p.id}" data-path="${esc(p.storage_path)}" style="margin-top:8px;padding:5px 12px;font-size:13px">削除</button>` : ''}
+    </div>`;
+  }).join('');
+
+  box.querySelectorAll('input[type=file]').forEach(inp => inp.onchange = () => uploadPhoto(inp));
+  box.querySelectorAll('.delph').forEach(b => b.onclick = async () => {
+    await sb.storage.from('shop-photos').remove([b.dataset.path]);
+    await sb.from('shop_photos').delete().eq('id', b.dataset.id);
+    say('写真を削除しました'); renderPhotos(); loadShops();
+  });
+}
+
+async function uploadPhoto(inp){
+  const file = inp.files[0]; if (!file || !CUR?.id) return;
+  if (file.size > 5 * 1024 * 1024) return say('画像は5MBまでです', false);
+  const slot = +inp.dataset.slot;
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const path = `${CUR.id}/photo${slot}_${Date.now()}.${ext}`;
+
+  const { error: upErr } = await sb.storage.from('shop-photos').upload(path, file, { upsert:true });
+  if (upErr) return say('アップロード失敗：' + upErr.message, false);
+
+  const old = PHOTOS[slot];
+  if (old){
+    await sb.storage.from('shop-photos').remove([old.storage_path]);
+    await sb.from('shop_photos').update({ storage_path:path }).eq('id', old.id);
+  } else {
+    await sb.from('shop_photos').insert({ shop_id:CUR.id, storage_path:path, sort_order:slot });
+  }
+  say('写真をアップロードしました'); renderPhotos(); loadShops();
+}
+
+/* ---------------- お知らせ ---------------- */
+async function loadNotices(){
+  const { data, error } = await sb.from('notices').select('*').order('publish_at', { ascending:false });
+  if (error) return say('お知らせ読み込み失敗：' + error.message, false);
+  $('noticeRows').innerHTML = (data||[]).length ? data.map(n => `
+    <tr data-id="${n.id}">
+      <td><b>${esc(n.title)}</b><br><span class="hint">${esc((n.body||'').slice(0,50))}</span></td>
+      <td><span class="pill ${n.is_published ? 'published' : 'draft'}">${n.is_published ? '公開中' : '下書き'}</span></td>
+      <td>${new Date(n.publish_at).toLocaleString('ja-JP')}</td>
+      <td>
+        <button class="btn s edn" style="padding:5px 12px;font-size:13px">編集</button>
+        <button class="btn d dln" style="padding:5px 12px;font-size:13px">削除</button>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="4" class="empty">お知らせがありません</td></tr>`;
+
+  $('noticeRows').querySelectorAll('.edn').forEach(b => b.onclick = e => {
+    const n = data.find(x => x.id === e.target.closest('tr').dataset.id);
+    EDIT_NOTICE = n.id;
+    $('n_title').value = n.title; $('n_body').value = n.body || '';
+    $('n_pub').value = String(n.is_published);
+    $('n_at').value = new Date(n.publish_at).toLocaleString('ja-JP');
+    $('saveNotice').textContent = '更新する'; $('cancelNotice').classList.remove('hidden');
+    $('n_title').scrollIntoView({ behavior:'smooth', block:'center' });
+  });
+  $('noticeRows').querySelectorAll('.dln').forEach(b => b.onclick = async e => {
+    if (!confirm('このお知らせを削除しますか？')) return;
+    await sb.from('notices').delete().eq('id', e.target.closest('tr').dataset.id);
+    say('削除しました'); loadNotices();
+  });
+}
+
+$('cancelNotice').onclick = () => resetNotice();
+function resetNotice(){
+  EDIT_NOTICE = null; $('n_title').value = ''; $('n_body').value = '';
+  $('n_pub').value = 'true'; $('n_at').value = '';
+  $('saveNotice').textContent = '投稿する'; $('cancelNotice').classList.add('hidden');
+}
+
+$('saveNotice').onclick = async () => {
+  const title = $('n_title').value.trim();
+  if (!title) return say('タイトルを入れてください', false);
+  const at = $('n_at').value.trim();
+  const parsed = at ? new Date(at) : new Date();
+  if (isNaN(parsed)) return say('公開日時を読み取れませんでした。空欄にすると今すぐ公開になります。', false);
+
+  const payload = {
+    title, body:$('n_body').value.trim(),
+    is_published: $('n_pub').value === 'true',
+    publish_at: parsed.toISOString(),
+  };
+  const q = EDIT_NOTICE
+    ? sb.from('notices').update(payload).eq('id', EDIT_NOTICE)
+    : sb.from('notices').insert({ ...payload, created_by: ME.id });
+  const { error } = await q;
+  if (error) return say('保存できませんでした：' + error.message, false);
+  say(EDIT_NOTICE ? '更新しました' : '投稿しました'); resetNotice(); loadNotices();
+};
+
+/* ---------------- 称号 ---------------- */
+async function loadTitles(){
+  const { data } = await sb.from('titles').select('*').order('sort_order');
+  $('titleRows').innerHTML = (data||[]).map(t => `
+    <tr><td><b>${esc(t.name)}</b></td><td>${esc(t.description)}</td><td>${t.sort_order}</td></tr>`).join('');
+}
+
+sb.auth.onAuthStateChange((_e, s) => { if (!s) location.reload(); });
+boot();
+</script>
+</body>
+</html>

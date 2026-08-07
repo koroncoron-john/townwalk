@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<title>TownWalk — お散歩ショッピング</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no,maximum-scale=1">
 <meta name="description" content="横スクロールで町を歩いて、お店をのぞいて、オンラインストアへ。お散歩ショッピングゲーム TownWalk。">
 <meta name="theme-color" content="#8fd4f2">
@@ -16,7 +17,6 @@
 <link rel="preload" as="image" href="assets/ground.webp">
 </head>
 <body>
-<title>TownWalk — お散歩ショッピング</title>
 <style>
 @font-face{
   font-family:'MP1'; src:url('assets/mp1.woff2') format('woff2');
@@ -153,6 +153,17 @@ html,body{margin:0; height:100%; overflow:hidden; background:#0e1620; font-famil
 .sheet .cat{display:inline-block; background:var(--gold); color:var(--wood-d); border:3px solid var(--wood-d);
   border-radius:999px; padding:2px 16px; font-size:18px; font-weight:800; margin-bottom:14px;}
 .sheet p{font-size:20px; line-height:1.75; color:#4a3826; margin:0 0 16px;}
+.lognote{background:#fff6dd; border:4px solid var(--gold); border-radius:16px;
+  padding:16px 20px; font-size:19px; line-height:1.7; color:#5c4526; margin:4px 0 14px;}
+.flabel{display:block; font-size:17px; font-weight:800; color:#6b5a44; margin:12px 0 5px;}
+.finput{width:100%; font-family:var(--font); font-size:21px; padding:12px 14px;
+  border:4px solid var(--wood); border-radius:12px; background:#fff; color:var(--ink);}
+.authmsg{min-height:26px; font-size:17px; font-weight:800; color:#b5432a; margin-top:8px;}
+.authmsg.ok{color:#2f7d4f;}
+.titlegrid{display:flex; flex-wrap:wrap; gap:10px; margin:4px 0 16px;}
+.titlechip{border:3px solid var(--wood); border-radius:999px; padding:6px 16px;
+  font-size:17px; font-weight:800; background:#fff; color:#8b7a62;}
+.titlechip.on{background:var(--gold); color:var(--wood-d); border-color:var(--wood-d);}
 .shoprow{display:grid; grid-template-columns:300px 1fr; gap:22px; align-items:center; margin-bottom:18px;}
 .shoppic{background:#dff0fa; border:4px solid var(--wood); border-radius:18px; padding:10px; height:280px;}
 .shoppic img{width:100%; height:100%; object-fit:contain;}
@@ -226,13 +237,18 @@ html,body{margin:0; height:100%; overflow:hidden; background:#0e1620; font-famil
 </div>
 <div id="rotate"><div class="ic">📱</div><div>よこむきにしてあそんでね</div></div>
 
-<script>
+<script src="config.js"></script>
+<script type="module">
 const IMG={
   bg:'assets/bg.webp', ground:'assets/ground.webp', platform:'assets/platform.webp', ladder:'assets/ladder.webp',
   shop_shop:'assets/shop_shop.webp', shop_flower:'assets/shop_flower.webp', shop_store:'assets/shop_store.webp', shop_sea:'assets/shop_sea.webp',
-  npc1:'assets/npc1.webp', npc2:'assets/npc2.webp', npc3:'assets/npc3.webp', npc4:'assets/npc4.webp',
+  npc1:'assets/npc1.webp', npc2:'assets/npc2.webp', npc3:'assets/npc3.webp',
+  npc4:'assets/npc4.webp', npc5:'assets/npc5.webp', npc6:'assets/npc6.webp',
   p_l:'assets/p_l.webp', p_r:'assets/p_r.webp', p_up:'assets/p_up.webp'
 };
+
+/* 店長キャラの実寸（トリミング後）— 表示高さ130pxに対する横幅の算出用 */
+const NPC_AR={npc1:106/122, npc2:124/133, npc3:101/131, npc4:105/128, npc5:94/130, npc6:90/121};
 
 /* === 支給画像の実測値から算出したレイアウト ===
    ground1(1814x230) 芝の面 = 高さの32% / ground2(1213x166) 芝の面 = 高さの23%
@@ -245,24 +261,8 @@ const LADDER_X=430, LADDER_W=135, LADDER_TOP=356, LADDER_H=352, LADDER_HALF=58;
 const SINK_SHOP=8, SINK_CHAR=4;                 // 芝に少し沈ませて接地感を出す
 const SPEED=5.4, CLIMB=4.6;
 
-const SHOPS=[
-  { id:'flower', img:'shop_flower', npc:'npc4', level:'upper', cx:700,  w:226, h:225, npcX:520, npcW:107,
-    name:'フラワーショップ', cat:'花・ガーデニング',
-    greet:['お花はいかがですか〜？','新しい寄せ植えが入ったよ！'],
-    desc:'季節のお花をあつめた、いいかおりのお店。ちいさなブーケから記念日の花束までそろいます。' },
-  { id:'store',  img:'shop_store',  npc:'npc3', level:'upper', cx:1150, w:189, h:225, npcX:980, npcW:100,
-    name:'よろずや ストア', cat:'雑貨・日用品',
-    greet:['いらっしゃい、ゆっくり見ておくれ','掘り出しものがあるかもしれんぞ'],
-    desc:'町のくらしに必要なものが、なんでもそろうお店。旅の道具から台所の小物まで。' },
-  { id:'shop',   img:'shop_shop',   npc:'npc2', level:'ground', cx:900,  w:287, h:250, npcX:690, npcW:121,
-    name:'ショップ こみち', cat:'おみやげ・食品',
-    greet:['よってらっしゃい！','今日のおすすめ、あるよ〜'],
-    desc:'つたのからまる石づくりのお店。町のおみやげと、できたてのお惣菜をならべています。' },
-  { id:'sea',    img:'shop_sea',    npc:'npc1', level:'ground', cx:2300, w:231, h:245, npcX:2100, npcW:113,
-    name:'シーマーケット', cat:'海の幸・鮮魚',
-    greet:['とれたての魚があるよ！','ヒトデもかざってみたんだ'],
-    desc:'港からとどいたばかりの魚がならぶ市場。ひものや缶づめのおみやげも人気です。' },
-];
+/* 店舗データは Supabase から読み込む（管理画面で編集できる） */
+let SHOPS=[];
 
 const S={x:520,y:GROUND_Y,level:'ground',climbing:false,face:1,phase:0,visited:new Set(),sound:true};
 const IN={left:false,right:false,up:false,down:false};
@@ -425,7 +425,11 @@ function enterShop(s){
     </div>`;
   el('veil').classList.add('on');
   el('shClose').onclick=closePanel;
-  el('ecGo').onclick=()=>toast('店舗のECサイトへ移動します');
+  el('ecGo').onclick=()=>{
+    if(DB.sb) DB.sb.from('ec_clicks').insert({shop_id:s.id, user_id:DB.user?.id??null});
+    if(s.ec){ window.open(s.ec,'_blank','noopener'); }
+    else toast('このお店はURL準備中です');
+  };
   if(first) setTimeout(()=>giveStamp(s),420);
 }
 function giveStamp(s){
@@ -437,46 +441,82 @@ function giveStamp(s){
   el('badge-'+s.id).classList.add('on');
   seStamp(); toast('スタンプ ゲット！');
   const left=SHOPS.length-S.visited.size;
-  el('stampHint').textContent=left>0?`のこり ${left} 店舗！`:'ぜんぶ集めた！称号ゲット🏆';
-  if(left===0) setTimeout(()=>toast('称号「町の常連」をゲット🏆'),1500);
+  el('stampHint').textContent=left>0?`のこり ${left} 店舗！`:'ぜんぶ集めた！';
+  DB.saveStamp(s.id);
+  if(left===0) setTimeout(async()=>{
+    const t=await DB.refreshTitles();
+    toast(t ? `称号「${t}」をゲット！` : 'ぜんぶ集めた！ログインすると称号がもらえます');
+  },1500);
 }
 
 function openPanel(kind){
   seOpen(); const sh=el('sheet');
   const done=S.visited.size,total=SHOPS.length;
   if(kind==='mypage'){
+    const u=DB.user, title=DB.titleName;
     sh.innerHTML=`<h2>マイページ</h2>
-      <div class="shoprow" style="grid-template-columns:220px 1fr">
-        <div class="shoppic" style="height:220px"><img src="${IMG.p_r}" alt=""></div>
-        <div><p style="font-size:25px"><b>プレイヤー</b></p>
-        <p>おとずれたお店：<b>${done} / ${total}</b><br>あるいた距離：<b>${Math.round(S.x)} m</b></p></div>
-      </div><div class="rowbtn"><button class="bigbtn close" id="c">とじる</button></div>`;
+      <div class="shoprow" style="grid-template-columns:200px 1fr">
+        <div class="shoppic" style="height:200px"><img src="${IMG.p_r}" alt=""></div>
+        <div>
+          <p style="font-size:25px;margin-bottom:6px"><b>${u?esc(DB.displayName):'ゲスト'}</b></p>
+          ${title?`<span class="cat">${esc(title)}</span>`:''}
+          <p>おとずれたお店：<b>${done} / ${total}</b><br>あるいた距離：<b>${Math.round(S.x)} m</b></p>
+        </div>
+      </div>
+      ${u ? `
+        <p>スタンプはアカウントに保存されています。ほかの端末でも続きから遊べます。</p>
+        <div id="titleBox"></div>
+        <div class="rowbtn">
+          <button class="bigbtn close" id="doLogout">ログアウト</button>
+          <button class="bigbtn close" id="c">とじる</button>
+        </div>`
+      : `
+        <div class="lognote">
+          <b>スタンプの記録を残しますか？</b><br>
+          いまの記録はこの端末だけに保存されています。ログインすると、ほかの端末でも続きから遊べて、称号ももらえます。
+        </div>
+        <label class="flabel">メールアドレス</label>
+        <input class="finput" type="email" id="mpEmail" autocomplete="username">
+        <label class="flabel">パスワード（6文字以上）</label>
+        <input class="finput" type="password" id="mpPw" autocomplete="current-password">
+        <div id="authMsg" class="authmsg"></div>
+        <div class="rowbtn">
+          <button class="bigbtn go" id="doLogin">ログイン</button>
+          <button class="bigbtn close" id="doSignup">はじめて登録する</button>
+          <button class="bigbtn close" id="c">とじる</button>
+        </div>`}`;
   }else if(kind==='news'){
-    sh.innerHTML=`<h2>お知らせ</h2>
-      <p>🌸 <b>ようこそ TownWalk へ！</b><br>ジョイスティックで歩いて、お店の前で「↑」を押すと中に入れるよ。</p>
-      <p>🪜 <b>はしごをのぼってみよう</b><br>左のはしごの前で「↑」を押すと、2かいのお店に行けるよ。</p>
-      <div class="rowbtn"><button class="bigbtn close" id="c">とじる</button></div>`;
+    sh.innerHTML=`<h2>お知らせ</h2>`
+      +(DB.notices.length
+        ? DB.notices.map(n=>`<p><b>${esc(n.title)}</b>${n.body?`<br>${esc(n.body)}`:''}</p>`).join('')
+        : `<p>いまお知らせはありません。</p>`)
+      +`<div class="rowbtn"><button class="bigbtn close" id="c">とじる</button></div>`;
   }else if(kind==='gift'){
     sh.innerHTML=`<h2>プレゼント</h2><p>いまは受け取れるプレゼントはありません。<br>スタンプを集めるとアイテムがとどきます！</p>
       <div class="rowbtn"><button class="bigbtn close" id="c">とじる</button></div>`;
   }else if(kind==='shoplist'){
     sh.innerHTML=`<h2>ショップ一覧</h2><div class="menulist">`
-      +SHOPS.map(s=>`<button data-go="${s.id}"><img src="${IMG[s.img]}" alt="">${S.visited.has(s.id)?'✅':'⬜️'}　${s.name}　<span style="opacity:.6;font-size:19px">${s.cat}</span></button>`).join('')
+      +SHOPS.map(s=>`<button data-go="${s.id}"><img src="${IMG[s.img]}" alt="">${S.visited.has(s.id)?'訪問ずみ':'みつけよう'}　${esc(s.name)}　<span style="opacity:.6;font-size:19px">${esc(s.cat)}</span></button>`).join('')
       +`</div><div class="rowbtn" style="margin-top:16px"><button class="bigbtn close" id="c">とじる</button></div>`;
   }else{
     sh.innerHTML=`<h2>メニュー</h2><div class="menulist">
-      <button>🧑 アバターを変える</button>
-      <button>✉️ アカウント情報（メール・パスワード）</button>
-      <button>📄 利用規約</button>
-      <button>🔒 プライバシーポリシー</button>
-      <button id="snd">${S.sound?'🔊 音：オン':'🔇 音：オフ'}</button>
-      <button class="danger">↩ ログアウト</button>
-      <button class="danger">⚠️ 退会</button>
+      <button>アバターを変える</button>
+      <button data-open2="mypage">アカウント情報</button>
+      <button>利用規約</button>
+      <button>プライバシーポリシー</button>
+      <button id="snd">音：${S.sound?'オン':'オフ'}</button>
+      ${DB.user?`<button class="danger" id="doLogout">ログアウト</button>`:''}
+      <button class="danger">退会</button>
       </div><div class="rowbtn" style="margin-top:16px"><button class="bigbtn close" id="c">とじる</button></div>`;
   }
   el('veil').classList.add('on');
   const c=el('c'); if(c)c.onclick=closePanel;
-  const sn=el('snd'); if(sn)sn.onclick=()=>{S.sound=!S.sound; sn.textContent=S.sound?'🔊 音：オン':'🔇 音：オフ'; if(S.sound)beep(700,.1);};
+  const sn=el('snd'); if(sn)sn.onclick=()=>{S.sound=!S.sound; sn.textContent='音：'+(S.sound?'オン':'オフ'); if(S.sound)beep(700,.1);};
+  sh.querySelectorAll('[data-open2]').forEach(b=>b.onclick=()=>openPanel(b.dataset.open2));
+  const lo=el('doLogout'); if(lo)lo.onclick=async()=>{ await DB.signOut(); closePanel(); toast('ログアウトしました'); };
+  const li=el('doLogin');  if(li)li.onclick=()=>DB.authAction('login');
+  const su=el('doSignup'); if(su)su.onclick=()=>DB.authAction('signup');
+  if(DB.user && el('titleBox')) DB.renderTitles(el('titleBox'));
   sh.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{
     const s=SHOPS.find(v=>v.id===b.dataset.go);
     S.x=s.cx; S.level=s.level; S.y=s.level==='upper'?UPPER_Y:GROUND_Y; S.climbing=false;
@@ -489,14 +529,185 @@ el('veil').addEventListener('click',e=>{ if(e.target.id==='veil') closePanel(); 
 let tT=null;
 function toast(m){const t=el('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove('on'),1800);}
 
-const NOTICES=['【お知らせ】ようこそ、TownWalkへ！','【ヒント】お店の前で「↑」を押すと中に入れるよ',
-  '【ヒント】左のはしごから2かいへ行けるよ','【お知らせ】スタンプを集めると称号がもらえます'];
-let ni=0; setInterval(()=>{ni=(ni+1)%NOTICES.length; el('noticeText').textContent=NOTICES[ni];},6000);
+let NOTICE_TEXTS=['【お知らせ】ようこそ、TownWalkへ！'];
+let ni=0; setInterval(()=>{ni=(ni+1)%NOTICE_TEXTS.length; el('noticeText').textContent=NOTICE_TEXTS[ni];},6000);
 
 function fit(){ stage.style.transform=`scale(${Math.min(innerWidth/SW,innerHeight/SH)})`; }
 addEventListener('resize',fit);
 
-buildWorld(); buildHUD(); bindInput(); fit(); tick();
+
+/* =====================================================================
+   Supabase 連携
+   - 未ログイン：スタンプは端末（localStorage）にだけ保存
+   - ログイン後：DB に保存され、他の端末でも続きから／称号がもらえる
+   ===================================================================== */
+const DB = {
+  sb:null, user:null, displayName:'ゲスト', titleName:null, notices:[],
+
+  async init(){
+    const C=window.TW_CONFIG;
+    try{
+      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+      this.sb = createClient(C.SUPABASE_URL, C.SUPABASE_KEY);
+      const { data:{ session } } = await this.sb.auth.getSession();
+      if(session) await this.onSignedIn(session.user);
+    }catch(e){ console.warn('Supabase 未接続のためオフラインで動作します', e); }
+  },
+
+  /* ---- 店舗 ---- */
+  async loadShops(){
+    let rows=null;
+    if(this.sb){
+      const { data, error } = await this.sb.from('published_shops').select('*');
+      if(error) console.warn('店舗の取得に失敗', error); else rows=data;
+    }
+    if(!rows || !rows.length) return [];
+    return rows.map(r=>{
+      const npc=r.npc_key||'npc5';
+      const h=130, w=Math.round(h*(NPC_AR[npc]||0.8));
+      return {
+        id:r.id, name:r.name, cat:r.category||'', desc:r.description||'',
+        ec:r.ec_url||null, sign:r.sign_text||'',
+        img:r.building_key||'shop_shop', npc,
+        level:r.floor==='upper'?'upper':'ground',
+        cx:r.pos_x, w:r.display_w, h:r.display_h,
+        npcX:r.pos_x+(r.npc_offset_x??-180), npcW:w,
+        greet:[]
+      };
+    });
+  },
+  async loadGreetings(shops){
+    if(!this.sb || !shops.length) return;
+    const { data } = await this.sb.from('shop_messages')
+      .select('shop_id, body').in('shop_id', shops.map(s=>s.id)).order('sort_order');
+    (data||[]).forEach(m=>{ const s=shops.find(x=>x.id===m.shop_id); if(s) s.greet.push(m.body); });
+    shops.forEach(s=>{ if(!s.greet.length) s.greet=['いらっしゃいませ〜！']; });
+  },
+
+  /* ---- お知らせ ---- */
+  async loadNotices(){
+    if(!this.sb) return;
+    const { data } = await this.sb.from('notices')
+      .select('title, body').order('publish_at',{ascending:false}).limit(8);
+    if(data && data.length){
+      this.notices = data;
+      NOTICE_TEXTS = data.map(n=>'【お知らせ】'+n.title);
+      el('noticeText').textContent = NOTICE_TEXTS[0];
+    }
+  },
+
+  /* ---- スタンプ ---- */
+  lsKey(){ return 'townwalk_stamps'; },
+  localStamps(){ try{ return JSON.parse(localStorage.getItem(this.lsKey())||'[]'); }catch(_){ return []; } },
+  async loadStamps(){
+    if(this.sb && this.user){
+      const { data } = await this.sb.from('stamps').select('shop_id').eq('user_id', this.user.id);
+      const ids=(data||[]).map(r=>r.shop_id);
+      // 未ログイン中に集めた分を引き継ぐ
+      const local=this.localStamps().filter(id=>!ids.includes(id));
+      if(local.length){
+        await this.sb.from('stamps').insert(local.map(shop_id=>({user_id:this.user.id, shop_id})));
+        localStorage.removeItem(this.lsKey());
+        local.forEach(id=>ids.push(id));
+      }
+      return ids;
+    }
+    return this.localStamps();
+  },
+  async saveStamp(shopId){
+    if(this.sb && this.user){
+      await this.sb.from('stamps').insert({user_id:this.user.id, shop_id:shopId});
+    }else{
+      const a=this.localStamps(); if(!a.includes(shopId)){ a.push(shopId);
+        try{ localStorage.setItem(this.lsKey(), JSON.stringify(a)); }catch(_){} }
+    }
+  },
+
+  /* ---- 称号 ---- */
+  async refreshTitles(){
+    if(!this.sb || !this.user) return null;
+    const { data } = await this.sb.from('profiles')
+      .select('display_name, equipped_title_code, titles:equipped_title_code(name)')
+      .eq('id', this.user.id).single();
+    if(data){ this.displayName=data.display_name||'プレイヤー'; this.titleName=data.titles?.name||null; }
+    return this.titleName;
+  },
+  async renderTitles(box){
+    const [{data:all},{data:mine}] = await Promise.all([
+      this.sb.from('titles').select('code,name,description').order('sort_order'),
+      this.sb.from('user_titles').select('title_code').eq('user_id', this.user.id),
+    ]);
+    const got=new Set((mine||[]).map(t=>t.title_code));
+    box.innerHTML = `<p style="margin-bottom:6px"><b>称号</b>（${got.size} / ${(all||[]).length}）</p>
+      <div class="titlegrid">`+ (all||[]).map(t=>
+        `<span class="titlechip ${got.has(t.code)?'on':''}" title="${esc(t.description)}">${got.has(t.code)?esc(t.name):'？？？'}</span>`
+      ).join('') + `</div>`;
+  },
+
+  /* ---- 認証 ---- */
+  async onSignedIn(u){
+    this.user=u;
+    await this.refreshTitles();
+  },
+  async authAction(mode){
+    const m=el('authMsg'); const email=el('mpEmail').value.trim(), pw=el('mpPw').value;
+    if(!this.sb){ m.textContent='いまサーバーにつながりません'; return; }
+    if(!email||pw.length<6){ m.textContent='メールアドレスと6文字以上のパスワードを入れてね'; return; }
+    m.className='authmsg'; m.textContent='……';
+    const { data, error } = mode==='login'
+      ? await this.sb.auth.signInWithPassword({ email, password:pw })
+      : await this.sb.auth.signUp({ email, password:pw });
+    if(error){ m.textContent='うまくいきませんでした：'+error.message; return; }
+    if(!data.session){ m.className='authmsg ok'; m.textContent='確認メールを送りました。メールを開いて登録を完了してね。'; return; }
+    await this.onSignedIn(data.session.user);
+    const ids=await this.loadStamps();
+    ids.forEach(id=>S.visited.add(id));
+    syncStampCard();
+    closePanel(); toast('ログインしました！');
+  },
+  async signOut(){
+    if(this.sb) await this.sb.auth.signOut();
+    this.user=null; this.titleName=null; this.displayName='ゲスト';
+  },
+};
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* スタンプカードと店舗の✓バッジを現在の訪問状況に合わせる */
+function syncStampCard(){
+  SHOPS.forEach(s=>{
+    const slot=el('slot-'+s.id), badge=el('badge-'+s.id);
+    if(!slot) return;
+    if(S.visited.has(s.id)){
+      slot.innerHTML=`<img src="${IMG[s.img]}" alt="">`;
+      slot.style.background='#ffe9b0'; slot.style.borderColor='#4a3418';
+      if(badge) badge.classList.add('on');
+    }else{
+      slot.innerHTML=''; slot.style.background=''; slot.style.borderColor='';
+      if(badge) badge.classList.remove('on');
+    }
+  });
+  const left=SHOPS.length-S.visited.size;
+  el('stampHint').textContent = SHOPS.length===0 ? 'お店を準備中です'
+    : left>0 ? `のこり ${left} 店舗！` : 'ぜんぶ集めた！';
+}
+
+/* ---------------- 起動 ---------------- */
+(async function start(){
+  await DB.init();
+  SHOPS = await DB.loadShops();
+  if(!SHOPS.length){
+    el('stampHint').textContent='お店を準備中です';
+    el('noticeText').textContent='【お知らせ】ただいま準備中です';
+  }
+  await DB.loadGreetings(SHOPS);
+  buildWorld(); buildHUD(); bindInput(); fit(); tick();
+
+  const ids = await DB.loadStamps();
+  ids.forEach(id=>S.visited.add(id));
+  syncStampCard();
+  DB.loadNotices();
+})();
 </script>
 
 </body>

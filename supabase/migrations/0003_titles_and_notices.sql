@@ -1,0 +1,3 @@
+-- 称号（自動付与）・お知らせ・Storage は Supabase に適用済み。
+-- 内容は本番DBの定義を正とする（MCP経由で apply_migration 済み）。
+-- titles / user_titles / notices / award_titles() / storage:shop-photos
