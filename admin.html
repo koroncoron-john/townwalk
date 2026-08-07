@@ -72,6 +72,27 @@ tr.sel{background:#fff6dd;}
 .photoslot .ps img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;background:#eee;display:block;margin-bottom:8px;}
 .photoslot .ps .ph{width:100%;aspect-ratio:4/3;border-radius:6px;background:#f0ece1;display:flex;align-items:center;justify-content:center;color:#a2937c;font-size:13px;margin-bottom:8px;}
 .empty{color:#8b7a62;padding:22px;text-align:center;}
+
+/* ---- 配置プレビュー ---- */
+#pvWrap{
+  position:relative;width:100%;overflow:hidden;border:3px solid var(--wood);
+  border-radius:12px;background:#8fd4f2;margin-top:6px;
+}
+#pv{position:absolute;left:0;top:0;transform-origin:top left;}
+#pv .l{position:absolute;}
+#pv .l img{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom;}
+#pv .other{opacity:.45;}
+#pv .me{filter:drop-shadow(0 0 0 #e8b64c) drop-shadow(0 0 14px #e8b64c);}
+#pv .ring{position:absolute;border:6px dashed #e8b64c;border-radius:10px;pointer-events:none;}
+#pv .tag{
+  position:absolute;background:rgba(43,29,16,.82);color:#ffe9a8;font-size:26px;font-weight:800;
+  padding:4px 14px;border-radius:99px;white-space:nowrap;transform:translateX(-50%);
+}
+#pv .oob{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,rgba(192,57,43,.28) 0 18px,rgba(192,57,43,.12) 18px 36px);}
+.pvbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:13px;color:#6b5a44;}
+.pvbar .warn{color:var(--ng);font-weight:800;}
+.pvbar .ok{color:var(--ok);font-weight:800;}
+input[type=range]{width:100%;}
 #login{max-width:420px;margin:60px auto;}
 .hidden{display:none !important;}
 </style>
@@ -160,6 +181,13 @@ tr.sel{background:#fff6dd;}
       <label>店長（オーナー）キャラクター</label>
       <div class="picker" id="pickNpc"></div>
 
+      <label>配置プレビュー<span class="hint" style="font-weight:400"> — 下の項目を変えるとリアルタイムに反映されます</span></label>
+      <div id="pvWrap"><div id="pv"></div></div>
+      <div class="pvbar">
+        <span id="pvStatus"></span>
+        <span style="margin-left:auto">薄い店舗＝他のお店 ／ 光っている店舗＝編集中</span>
+      </div>
+
       <div class="grid3">
         <div><label>階</label>
           <select id="f_floor"><option value="ground">1階</option><option value="upper">2階</option></select>
@@ -167,11 +195,12 @@ tr.sel{background:#fff6dd;}
         <div><label>横位置 X</label><input type="number" id="f_x" step="10"></div>
         <div><label>店長の横ずれ</label><input type="number" id="f_npcoff" step="10"></div>
       </div>
+      <label style="margin-top:4px">横位置をスライダーで調整</label>
+      <input type="range" id="f_xr" min="0" max="2600" step="5">
       <div class="grid2">
         <div><label>表示幅</label><input type="number" id="f_w" step="1"></div>
         <div><label>表示高さ</label><input type="number" id="f_h" step="1"></div>
       </div>
-      <p class="hint">1階は X=90〜2510、2階は X=380〜1510 の範囲に置いてください。</p>
 
       <label>店内写真（2枚まで）</label>
       <div class="photoslot" id="photoSlots"></div>
@@ -230,7 +259,7 @@ tr.sel{background:#fff6dd;}
   </section>
 </div>
 
-<script src="config.js"></script>
+<script src="config.js?v=2"></script>
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const C = window.TW_CONFIG;
@@ -352,11 +381,92 @@ async function openShop(s){
     $('f_msgs').value = (data||[]).map(m => m.body).join('\n');
   }
   await renderPhotos();
+  syncSlider(); drawPreview();
   $('editor').scrollIntoView({ behavior:'smooth', block:'start' });
   await loadShops();
+  drawPreview();                       // 他店舗の一覧を読み込んだ後にもう一度描く
 }
 
 $('cancelShop').onclick = () => { CUR = null; $('editor').classList.add('hidden'); loadShops(); };
+
+/* ---------------- 配置プレビュー ---------------- */
+const L = C.LAYOUT;
+
+function fitPreview(){
+  const wrap = $('pvWrap');
+  if (!wrap.clientWidth) return 0;
+  const sc = wrap.clientWidth / L.W;
+  const pv = $('pv');
+  pv.style.width = L.W + 'px';
+  pv.style.height = L.SH + 'px';
+  pv.style.transform = `scale(${sc})`;
+  wrap.style.height = (L.SH * sc) + 'px';
+  return sc;
+}
+
+function drawPreview(){
+  if (!CUR) return;
+  fitPreview();
+  const floor = $('f_floor').value;
+  const x = +$('f_x').value || 0;
+  const w = +$('f_w').value || 250;
+  const h = +$('f_h').value || 250;
+  const noff = +$('f_npcoff').value || 0;
+  const bkey = pick('bkey'), nkey = pick('nkey');
+  const base = floor === 'upper' ? L.UPPER_Y : L.GROUND_Y;
+  const npcW = Math.round(L.NPC_H * (C.NPC_AR[nkey] || 0.8));
+
+  let html = '';
+  // 背景・地面・足場・はしご
+  html += `<div class="l" style="left:0;top:0;width:${L.W}px;height:${L.SH}px">
+             <img src="assets/bg.webp" style="object-fit:cover;object-position:center 62%" alt=""></div>`;
+  html += `<div class="l" style="left:0;top:${L.GROUND_TOP}px;width:${L.W}px;height:${L.GROUND_H}px"><img src="assets/ground.webp" alt=""></div>`;
+  html += `<div class="l" style="left:${L.PLAT_X}px;top:${L.PLAT_TOP}px;width:${L.PLAT_W}px;height:${L.PLAT_H}px"><img src="assets/platform.webp" alt=""></div>`;
+  html += `<div class="l" style="left:${L.LADDER_X - L.LADDER_W/2}px;top:${L.LADDER_TOP}px;width:${L.LADDER_W}px;height:${L.LADDER_H}px"><img src="assets/ladder.webp" alt=""></div>`;
+
+  // 配置できない範囲を赤く示す
+  const [lo, hi] = L.RANGE[floor];
+  html += `<div class="oob" style="left:0;width:${lo}px"></div>`;
+  html += `<div class="oob" style="left:${hi}px;width:${L.W - hi}px"></div>`;
+
+  // 他の店舗（薄く）
+  SHOPS.filter(s => s.id !== CUR.id && s.status === 'published').forEach(s => {
+    const b = s.floor === 'upper' ? L.UPPER_Y : L.GROUND_Y;
+    if (s.building_key)
+      html += `<div class="l other" style="left:${s.pos_x - s.display_w/2}px;top:${b - s.display_h + L.SINK_SHOP}px;width:${s.display_w}px;height:${s.display_h}px"><img src="assets/${s.building_key}.webp" alt=""></div>`;
+    if (s.npc_key){
+      const nw = Math.round(L.NPC_H * (C.NPC_AR[s.npc_key] || 0.8));
+      html += `<div class="l other" style="left:${s.pos_x + s.npc_offset_x - nw/2}px;top:${b - L.NPC_H + L.SINK_CHAR}px;width:${nw}px;height:${L.NPC_H}px"><img src="assets/${s.npc_key}.webp" alt=""></div>`;
+    }
+  });
+
+  // 編集中の店舗
+  if (nkey)
+    html += `<div class="l me" style="left:${x + noff - npcW/2}px;top:${base - L.NPC_H + L.SINK_CHAR}px;width:${npcW}px;height:${L.NPC_H}px"><img src="assets/${nkey}.webp" alt=""></div>`;
+  if (bkey)
+    html += `<div class="l me" style="left:${x - w/2}px;top:${base - h + L.SINK_SHOP}px;width:${w}px;height:${h}px"><img src="assets/${bkey}.webp" alt=""></div>`;
+  html += `<div class="ring" style="left:${x - w/2 - 6}px;top:${base - h - 6}px;width:${w + 12}px;height:${h + 12}px"></div>`;
+  html += `<div class="tag" style="left:${x}px;top:${base - h - 56}px">${esc($('f_name').value || '（名称未設定）')}</div>`;
+
+  $('pv').innerHTML = html;
+
+  // 警告表示
+  const msgs = [];
+  if (x < lo || x > hi) msgs.push(`<span class="warn">X が範囲外（${floor === 'upper' ? '2階' : '1階'}は ${lo}〜${hi}）</span>`);
+  const hit = SHOPS.find(s => s.id !== CUR.id && s.status === 'published' && s.floor === floor
+                            && Math.abs(s.pos_x - x) < (s.display_w + w) / 2);
+  if (hit) msgs.push(`<span class="warn">「${esc(hit.name)}」と重なっています</span>`);
+  $('pvStatus').innerHTML = msgs.length ? msgs.join('　') : `<span class="ok">配置OK</span>`;
+}
+
+['f_floor','f_x','f_w','f_h','f_npcoff','f_name'].forEach(id =>
+  $(id).addEventListener('input', () => { syncSlider(); drawPreview(); }));
+$('f_xr').addEventListener('input', () => { $('f_x').value = $('f_xr').value; drawPreview(); });
+document.addEventListener('change', e => {
+  if (e.target.name === 'bkey' || e.target.name === 'nkey') drawPreview();
+});
+addEventListener('resize', () => drawPreview());
+function syncSlider(){ $('f_xr').value = $('f_x').value; }
 
 $('saveShop').onclick = async () => {
   if (!$('f_name').value.trim()) return say('店舗名を入れてください', false);

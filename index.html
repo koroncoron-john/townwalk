@@ -122,9 +122,13 @@ html,body{margin:0; height:100%; overflow:hidden; background:#0e1620; font-famil
 
 #pad{
   left:40px; bottom:34px; width:250px; height:250px; border-radius:50%;
-  background:radial-gradient(circle at 38% 32%, #6b6157, #2e2822 78%);
-  border:5px solid rgba(255,255,255,.35); box-shadow:0 8px 0 rgba(0,0,0,.35); touch-action:none;
+  background:radial-gradient(circle at 38% 32%, rgba(107,97,87,.5), rgba(46,40,34,.55) 78%);
+  border:5px solid rgba(255,255,255,.3); box-shadow:0 8px 0 rgba(0,0,0,.18); touch-action:none;
+  opacity:.55; transition:opacity .18s ease;
+  backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);
 }
+/* 操作中だけはっきり見せる */
+#pad.grabbing{opacity:.95;}
 #pad .ar{position:absolute; color:#fff; font-size:34px; opacity:.85; pointer-events:none; text-shadow:0 2px 3px rgba(0,0,0,.6);}
 #pad .ar.u{left:50%; top:12px; transform:translateX(-50%);}
 #pad .ar.d{left:50%; bottom:12px; transform:translateX(-50%);}
@@ -237,7 +241,7 @@ html,body{margin:0; height:100%; overflow:hidden; background:#0e1620; font-famil
 </div>
 <div id="rotate"><div class="ic">📱</div><div>よこむきにしてあそんでね</div></div>
 
-<script src="config.js"></script>
+<script src="config.js?v=2"></script>
 <script type="module">
 const IMG={
   bg:'assets/bg.webp', ground:'assets/ground.webp', platform:'assets/platform.webp', ladder:'assets/ladder.webp',
@@ -248,17 +252,18 @@ const IMG={
 };
 
 /* 店長キャラの実寸（トリミング後）— 表示高さ130pxに対する横幅の算出用 */
-const NPC_AR={npc1:106/122, npc2:124/133, npc3:101/131, npc4:105/128, npc5:94/130, npc6:90/121};
+const NPC_AR = window.TW_CONFIG.NPC_AR;
 
 /* === 支給画像の実測値から算出したレイアウト ===
    ground1(1814x230) 芝の面 = 高さの32% / ground2(1213x166) 芝の面 = 高さの23%
    スプライトは透明余白をトリミング済みなので、下端＝接地点 */
-const W=2600, SW=1536, SH=864;
-const GROUND_Y=700, UPPER_Y=372;
-const GROUND_H=330, GROUND_TOP=GROUND_Y-105;   // 芝の面が GROUND_Y に一致
-const PLAT_X=330, PLAT_W=1213, PLAT_H=166, PLAT_TOP=UPPER_Y-38;
-const LADDER_X=430, LADDER_W=135, LADDER_TOP=356, LADDER_H=352, LADDER_HALF=58;
-const SINK_SHOP=8, SINK_CHAR=4;                 // 芝に少し沈ませて接地感を出す
+const L = window.TW_CONFIG.LAYOUT;              // 管理画面プレビューと共有
+const W=L.W, SW=1536, SH=L.SH;
+const GROUND_Y=L.GROUND_Y, UPPER_Y=L.UPPER_Y;
+const GROUND_H=L.GROUND_H, GROUND_TOP=L.GROUND_TOP;
+const PLAT_X=L.PLAT_X, PLAT_W=L.PLAT_W, PLAT_H=L.PLAT_H, PLAT_TOP=L.PLAT_TOP;
+const LADDER_X=L.LADDER_X, LADDER_W=L.LADDER_W, LADDER_TOP=L.LADDER_TOP, LADDER_H=L.LADDER_H, LADDER_HALF=58;
+const SINK_SHOP=L.SINK_SHOP, SINK_CHAR=L.SINK_CHAR;
 const SPEED=5.4, CLIMB=4.6;
 
 /* 店舗データは Supabase から読み込む（管理画面で編集できる） */
@@ -326,10 +331,12 @@ function bindInput(){
     const m=Math.min(1,Math.hypot(dx,dy)/78),ang=Math.atan2(dy,dx);
     knob.style.transform=`translate(${Math.cos(ang)*m*52}px,${Math.sin(ang)*m*52}px)`;};
   const clear=()=>{active=false; IN.left=IN.right=IN.up=IN.down=false;
+    pad.classList.remove('grabbing');
     pad.querySelectorAll('.ar').forEach(a=>a.classList.remove('on')); knob.style.transform='';};
   const pos=e=>{const r=pad.getBoundingClientRect(),t=e.touches?e.touches[0]:e,sc=r.width/250;
     return [(t.clientX-r.left)/sc-125,(t.clientY-r.top)/sc-125];};
   pad.addEventListener('pointerdown',e=>{e.preventDefault(); active=true;
+    pad.classList.add('grabbing');
     try{pad.setPointerCapture(e.pointerId);}catch(_){} const[x,y]=pos(e); if(y<-18)tryAction(); set(x,y);});
   pad.addEventListener('pointermove',e=>{if(!active)return; e.preventDefault();
     const[x,y]=pos(e); const was=IN.up; set(x,y); if(!was&&IN.up)tryAction();});
