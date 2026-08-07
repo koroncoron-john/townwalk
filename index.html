@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no,maximum-scale=1">
+<meta name="description" content="横スクロールで町を歩いて、お店をのぞいて、オンラインストアへ。お散歩ショッピングゲーム TownWalk。">
+<meta name="theme-color" content="#8fd4f2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="icon" href="assets/icon-192.png">
+<link rel="preload" as="font" type="font/woff2" href="assets/mp1.woff2" crossorigin>
+<link rel="preload" as="image" href="assets/bg.webp">
+<link rel="preload" as="image" href="assets/ground.webp">
+</head>
+<body>
+<title>TownWalk — お散歩ショッピング</title>
+<style>
+@font-face{
+  font-family:'MP1'; src:url('assets/mp1.woff2') format('woff2');
+  font-weight:100 900; font-style:normal; font-display:swap;
+}
+:root{
+  --ink:#3d2a18; --wood:#7a5a2e; --wood-d:#4a3418; --gold:#e8b64c;
+  --font:'MP1','Hiragino Maru Gothic ProN','Hiragino Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0; height:100%; overflow:hidden; background:#0e1620; font-family:var(--font);}
+
+#viewport{position:fixed; inset:0; display:flex; align-items:center; justify-content:center;}
+#stage{
+  position:relative; width:1536px; height:864px; flex:0 0 auto; transform-origin:center center;
+  overflow:hidden; background:#8fd4f2; user-select:none;
+}
+
+#sky{position:absolute; left:0; top:0; width:2100px; height:864px;}
+#sky img{width:100%; height:100%; object-fit:cover; object-position:center 62%; display:block;}
+#world{position:absolute; left:0; top:0; width:2600px; height:864px;}
+.ent{position:absolute;}
+.ent img{display:block; width:100%; height:100%; object-fit:contain; object-position:center bottom;}
+
+/* NPC がゆっくり呼吸する */
+.npcimg{transform-origin:center bottom; animation:idle 2.8s ease-in-out infinite;}
+@keyframes idle{0%,100%{transform:scaleY(1) scaleX(1)}50%{transform:scaleY(1.022) scaleX(.994)}}
+
+.npc-bubble{
+  position:absolute; left:50%; bottom:calc(100% + 10px); transform:translateX(-50%) scale(.6);
+  background:#fffdf5; border:4px solid var(--ink); border-radius:18px; padding:8px 16px;
+  font-size:20px; font-weight:700; color:var(--ink); white-space:nowrap;
+  opacity:0; transition:opacity .22s, transform .22s cubic-bezier(.34,1.6,.64,1); pointer-events:none;
+  box-shadow:0 5px 0 rgba(0,0,0,.18); z-index:60;
+}
+.npc-bubble::after{content:''; position:absolute; left:50%; bottom:-16px; margin-left:-10px; border:10px solid transparent; border-top-color:var(--ink);}
+.npc-bubble::before{content:''; position:absolute; left:50%; bottom:-9px; margin-left:-7px; z-index:1; border:7px solid transparent; border-top-color:#fffdf5;}
+.npc-bubble.show{opacity:1; transform:translateX(-50%) scale(1);}
+
+.done-badge{
+  position:absolute; right:0; top:-8px; width:52px; height:52px; border-radius:50%;
+  background:#4ec26a; border:5px solid #fff; color:#fff; font-size:28px; font-weight:800;
+  display:none; align-items:center; justify-content:center; box-shadow:0 4px 0 rgba(0,0,0,.25); z-index:30;
+}
+.done-badge.on{display:flex;}
+
+#player{position:absolute; width:120px; height:132px; z-index:50;}
+#pshadow{
+  position:absolute; left:50%; bottom:-4px; width:74px; height:16px; border-radius:50%;
+  background:rgba(30,50,20,.3); filter:blur(4px); transform:translateX(-50%); z-index:-1;
+}
+#pimg{width:100%; height:100%; object-fit:contain; object-position:center bottom; transform-origin:center bottom;}
+#hint{
+  position:absolute; left:50%; bottom:calc(100% + 4px); transform:translateX(-50%);
+  background:var(--gold); border:4px solid var(--wood-d); border-radius:14px; padding:5px 15px;
+  font-size:21px; font-weight:800; color:var(--wood-d); white-space:nowrap; opacity:0;
+  transition:opacity .15s; box-shadow:0 4px 0 rgba(0,0,0,.2); z-index:70;
+}
+#hint.show{opacity:1; animation:bob .9s ease-in-out infinite;}
+@keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-7px)}}
+
+/* ---------- HUD ---------- */
+.hud{position:absolute; z-index:100;}
+#stampCard{
+  left:26px; top:22px; width:520px;
+  background:linear-gradient(#f7ecd2,#e6d0a4); border:5px solid var(--wood);
+  border-radius:20px; padding:12px 20px 14px 92px; box-shadow:0 6px 0 rgba(0,0,0,.25);
+}
+#stampCard .who{
+  position:absolute; left:-14px; top:-14px; width:96px; height:96px; border-radius:20px;
+  border:5px solid #fff; background:#cfe6f5; overflow:hidden; box-shadow:0 4px 0 rgba(0,0,0,.2);
+}
+#stampCard .who img{width:100%; height:100%; object-fit:contain; object-position:center bottom;}
+#stampCard .ttl{text-align:center; font-size:25px; font-weight:800; color:var(--ink); margin-bottom:9px;}
+#stampCard .slots{display:flex; gap:10px; justify-content:center;}
+.slot{
+  width:54px; height:54px; border-radius:50%; border:4px solid var(--wood); overflow:hidden;
+  background:#fffdf5; display:flex; align-items:center; justify-content:center;
+  transition:transform .3s cubic-bezier(.34,1.7,.64,1);
+}
+.slot img{width:88%; height:88%; object-fit:contain;}
+.slot.pop{transform:scale(1.5) rotate(-14deg);}
+#stampCard .hint{
+  margin-top:11px; background:#fffdf5; border:3px solid var(--wood); border-radius:12px;
+  text-align:center; font-size:18px; font-weight:700; color:var(--wood-d); padding:5px;
+}
+.iconbtn{
+  width:104px; height:104px; border-radius:20px; border:4px solid var(--gold);
+  background:linear-gradient(#3a3630,#1c1a16); color:#fff; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  box-shadow:0 6px 0 rgba(0,0,0,.35); transition:transform .09s; position:relative; padding:0; font-family:var(--font);
+}
+.iconbtn:active{transform:translateY(5px); box-shadow:0 1px 0 rgba(0,0,0,.35);}
+.iconbtn .gl{width:52px; height:52px;} .iconbtn .gl svg{width:100%; height:100%;}
+.iconbtn .lb{font-size:16px; font-weight:800;}
+.iconbtn .badge{
+  position:absolute; right:-8px; top:-8px; min-width:30px; height:30px; border-radius:15px;
+  background:#e5462f; border:3px solid #fff; color:#fff; font-size:17px; font-weight:800;
+  display:flex; align-items:center; justify-content:center; padding:0 5px;
+}
+#topRight{right:24px; top:22px; display:flex; gap:14px;}
+#sideRight{right:24px; top:150px; display:flex; flex-direction:column; gap:14px;}
+
+#pad{
+  left:40px; bottom:34px; width:250px; height:250px; border-radius:50%;
+  background:radial-gradient(circle at 38% 32%, #6b6157, #2e2822 78%);
+  border:5px solid rgba(255,255,255,.35); box-shadow:0 8px 0 rgba(0,0,0,.35); touch-action:none;
+}
+#pad .ar{position:absolute; color:#fff; font-size:34px; opacity:.85; pointer-events:none; text-shadow:0 2px 3px rgba(0,0,0,.6);}
+#pad .ar.u{left:50%; top:12px; transform:translateX(-50%);}
+#pad .ar.d{left:50%; bottom:12px; transform:translateX(-50%);}
+#pad .ar.l{left:14px; top:50%; transform:translateY(-50%);}
+#pad .ar.r{right:14px; top:50%; transform:translateY(-50%);}
+#pad .ar.on{opacity:1; color:var(--gold);}
+#knob{
+  position:absolute; left:50%; top:50%; width:96px; height:96px; margin:-48px 0 0 -48px;
+  border-radius:50%; background:radial-gradient(circle at 36% 30%, #cfc3ae, #6d5f4a);
+  border:4px solid rgba(255,255,255,.4); box-shadow:0 4px 10px rgba(0,0,0,.4); pointer-events:none;
+}
+#notice{
+  left:50%; bottom:30px; transform:translateX(-50%); width:820px;
+  background:rgba(28,26,22,.86); border:3px solid rgba(255,255,255,.3); border-radius:999px;
+  color:#fff; display:flex; align-items:center; gap:14px; padding:13px 28px; font-size:22px; font-weight:700;
+}
+#notice .tri{margin-left:auto; color:var(--gold); font-size:19px;}
+
+#veil{position:absolute; inset:0; background:rgba(20,16,10,.66); z-index:200; display:none; align-items:center; justify-content:center; padding:36px;}
+#veil.on{display:flex;}
+.sheet{
+  background:linear-gradient(#fffdf5,#f3e6cc); border:6px solid var(--wood); border-radius:26px;
+  box-shadow:0 12px 0 rgba(0,0,0,.3); max-width:1060px; width:100%; max-height:100%; overflow:auto; padding:26px 32px 30px;
+}
+.sheet h2{margin:0 0 6px; font-size:36px; font-weight:800; color:var(--ink);}
+.sheet .cat{display:inline-block; background:var(--gold); color:var(--wood-d); border:3px solid var(--wood-d);
+  border-radius:999px; padding:2px 16px; font-size:18px; font-weight:800; margin-bottom:14px;}
+.sheet p{font-size:20px; line-height:1.75; color:#4a3826; margin:0 0 16px;}
+.shoprow{display:grid; grid-template-columns:300px 1fr; gap:22px; align-items:center; margin-bottom:18px;}
+.shoppic{background:#dff0fa; border:4px solid var(--wood); border-radius:18px; padding:10px; height:280px;}
+.shoppic img{width:100%; height:100%; object-fit:contain;}
+.photos{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+.photos .cell{aspect-ratio:4/3; border:3px dashed #5c7b9b; border-radius:12px; background:rgba(255,255,255,.7);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; color:#456883; font-weight:700; font-size:15px;}
+.photos .cell em{font-style:normal; font-size:12px; color:#7b93a8;}
+.rowbtn{display:flex; gap:16px; flex-wrap:wrap;}
+.bigbtn{
+  flex:1; min-width:230px; border:5px solid var(--wood-d); border-radius:18px; cursor:pointer;
+  font-family:var(--font); font-size:25px; font-weight:800; padding:17px 20px;
+  box-shadow:0 6px 0 rgba(0,0,0,.28); transition:transform .09s; color:var(--wood-d);
+}
+.bigbtn:active{transform:translateY(5px); box-shadow:0 1px 0 rgba(0,0,0,.28);}
+.bigbtn.go{background:linear-gradient(#7ad46f,#4bb04a); color:#123; border-color:#2c6b2c;}
+.bigbtn.close{background:linear-gradient(#f3e6cc,#dcc79c);}
+.menulist{display:flex; flex-direction:column; gap:11px;}
+.menulist button{
+  text-align:left; font-family:var(--font); font-size:23px; font-weight:700; color:var(--wood-d);
+  background:#fffdf5; border:4px solid var(--wood); border-radius:16px; padding:15px 22px; cursor:pointer;
+  box-shadow:0 4px 0 rgba(0,0,0,.2); transition:transform .09s; display:flex; align-items:center; gap:14px;
+}
+.menulist button:active{transform:translateY(4px); box-shadow:0 0 0 rgba(0,0,0,.2);}
+.menulist button.danger{color:#a33; border-color:#c98;}
+.menulist button img{width:44px; height:44px; object-fit:contain;}
+
+#toast{
+  position:absolute; left:50%; top:118px; transform:translateX(-50%) translateY(-20px);
+  background:var(--gold); border:5px solid var(--wood-d); border-radius:20px;
+  padding:15px 34px; font-size:27px; font-weight:800; color:var(--wood-d); z-index:300;
+  opacity:0; transition:opacity .25s, transform .25s cubic-bezier(.34,1.6,.64,1);
+  box-shadow:0 6px 0 rgba(0,0,0,.28); pointer-events:none; white-space:nowrap;
+}
+#toast.on{opacity:1; transform:translateX(-50%) translateY(0);}
+
+#rotate{position:fixed; inset:0; background:#12202c; color:#fff; z-index:9999; display:none;
+  flex-direction:column; align-items:center; justify-content:center; gap:20px; font-size:26px; font-weight:800; text-align:center;}
+#rotate .ic{font-size:88px; animation:rot 1.8s ease-in-out infinite;}
+@keyframes rot{0%,40%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+@media (orientation:portrait){ #rotate{display:flex;} }
+</style>
+
+<div id="viewport">
+  <div id="stage">
+    <div id="sky"><img src="assets/bg.webp" alt=""></div>
+    <div id="world"></div>
+
+    <div class="hud" id="stampCard">
+      <div class="who"><img src="assets/p_r.webp" alt=""></div>
+      <div class="ttl">スタンプカード</div>
+      <div class="slots" id="slots"></div>
+      <div class="hint" id="stampHint">ショップを訪れてスタンプを集めよう！</div>
+    </div>
+
+    <div class="hud" id="topRight"></div>
+    <div class="hud" id="sideRight"></div>
+
+    <div class="hud" id="pad">
+      <span class="ar u" data-d="up">▲</span><span class="ar d" data-d="down">▼</span>
+      <span class="ar l" data-d="left">◀</span><span class="ar r" data-d="right">▶</span>
+      <div id="knob"></div>
+    </div>
+
+    <div class="hud" id="notice">
+      <span>💬</span><span id="noticeText">【お知らせ】ようこそ、TownWalkへ！</span><span class="tri">▲</span>
+    </div>
+
+    <div id="toast"></div>
+    <div id="veil"><div class="sheet" id="sheet"></div></div>
+  </div>
+</div>
+<div id="rotate"><div class="ic">📱</div><div>よこむきにしてあそんでね</div></div>
+
+<script>
+const IMG={
+  bg:'assets/bg.webp', ground:'assets/ground.webp', platform:'assets/platform.webp', ladder:'assets/ladder.webp',
+  shop_shop:'assets/shop_shop.webp', shop_flower:'assets/shop_flower.webp', shop_store:'assets/shop_store.webp', shop_sea:'assets/shop_sea.webp',
+  npc1:'assets/npc1.webp', npc2:'assets/npc2.webp', npc3:'assets/npc3.webp', npc4:'assets/npc4.webp',
+  p_l:'assets/p_l.webp', p_r:'assets/p_r.webp', p_up:'assets/p_up.webp'
+};
+
+/* === 支給画像の実測値から算出したレイアウト ===
+   ground1(1814x230) 芝の面 = 高さの32% / ground2(1213x166) 芝の面 = 高さの23%
+   スプライトは透明余白をトリミング済みなので、下端＝接地点 */
+const W=2600, SW=1536, SH=864;
+const GROUND_Y=700, UPPER_Y=372;
+const GROUND_H=330, GROUND_TOP=GROUND_Y-105;   // 芝の面が GROUND_Y に一致
+const PLAT_X=330, PLAT_W=1213, PLAT_H=166, PLAT_TOP=UPPER_Y-38;
+const LADDER_X=430, LADDER_W=135, LADDER_TOP=356, LADDER_H=352, LADDER_HALF=58;
+const SINK_SHOP=8, SINK_CHAR=4;                 // 芝に少し沈ませて接地感を出す
+const SPEED=5.4, CLIMB=4.6;
+
+const SHOPS=[
+  { id:'flower', img:'shop_flower', npc:'npc4', level:'upper', cx:700,  w:226, h:225, npcX:520, npcW:107,
+    name:'フラワーショップ', cat:'花・ガーデニング',
+    greet:['お花はいかがですか〜？','新しい寄せ植えが入ったよ！'],
+    desc:'季節のお花をあつめた、いいかおりのお店。ちいさなブーケから記念日の花束までそろいます。' },
+  { id:'store',  img:'shop_store',  npc:'npc3', level:'upper', cx:1150, w:189, h:225, npcX:980, npcW:100,
+    name:'よろずや ストア', cat:'雑貨・日用品',
+    greet:['いらっしゃい、ゆっくり見ておくれ','掘り出しものがあるかもしれんぞ'],
+    desc:'町のくらしに必要なものが、なんでもそろうお店。旅の道具から台所の小物まで。' },
+  { id:'shop',   img:'shop_shop',   npc:'npc2', level:'ground', cx:900,  w:287, h:250, npcX:690, npcW:121,
+    name:'ショップ こみち', cat:'おみやげ・食品',
+    greet:['よってらっしゃい！','今日のおすすめ、あるよ〜'],
+    desc:'つたのからまる石づくりのお店。町のおみやげと、できたてのお惣菜をならべています。' },
+  { id:'sea',    img:'shop_sea',    npc:'npc1', level:'ground', cx:2300, w:231, h:245, npcX:2100, npcW:113,
+    name:'シーマーケット', cat:'海の幸・鮮魚',
+    greet:['とれたての魚があるよ！','ヒトデもかざってみたんだ'],
+    desc:'港からとどいたばかりの魚がならぶ市場。ひものや缶づめのおみやげも人気です。' },
+];
+
+const S={x:520,y:GROUND_Y,level:'ground',climbing:false,face:1,phase:0,visited:new Set(),sound:true};
+const IN={left:false,right:false,up:false,down:false};
+function el(id){return document.getElementById(id);}
+const stage=el('stage'), world=el('world'), sky=el('sky');
+
+function buildWorld(){
+  let h='';
+  h+=`<div class="ent" style="left:0;top:${GROUND_TOP}px;width:${W}px;height:${GROUND_H}px;z-index:3"><img src="${IMG.ground}" alt=""></div>`;
+  h+=`<div class="ent" style="left:${PLAT_X}px;top:${PLAT_TOP}px;width:${PLAT_W}px;height:${PLAT_H}px;z-index:4"><img src="${IMG.platform}" alt=""></div>`;
+  h+=`<div class="ent" style="left:${LADDER_X-LADDER_W/2}px;top:${LADDER_TOP}px;width:${LADDER_W}px;height:${LADDER_H}px;z-index:6"><img src="${IMG.ladder}" alt=""></div>`;
+  SHOPS.forEach((s,i)=>{
+    const base = s.level==='upper'?UPPER_Y:GROUND_Y;
+    h+=`<div class="ent" style="left:${s.cx-s.w/2}px;top:${base-s.h+SINK_SHOP}px;width:${s.w}px;height:${s.h}px;z-index:${s.level==='upper'?10:20}">`
+      +`<div class="done-badge" id="badge-${s.id}">✓</div><img src="${IMG[s.img]}" alt="${s.name}"></div>`;
+    h+=`<div class="ent" style="left:${s.npcX-s.npcW/2}px;top:${base-130+SINK_CHAR}px;width:${s.npcW}px;height:130px;z-index:${s.level==='upper'?12:22}">`
+      +`<div class="npc-bubble" id="bub-${s.id}"></div>`
+      +`<img class="npcimg" style="animation-delay:${i*0.6}s" src="${IMG[s.npc]}" alt=""></div>`;
+  });
+  h+=`<div id="player"><div id="hint">↑ おす</div><div id="pshadow"></div><img id="pimg" src="${IMG.p_r}" alt=""></div>`;
+  world.innerHTML=h;
+}
+
+const ICONS={
+  crown:'<svg viewBox="0 0 24 24" fill="#e8b64c" stroke="#5b430f" stroke-width="1.4" stroke-linejoin="round"><path d="M3 8l4 3 5-6 5 6 4-3-2 11H5z"/></svg>',
+  mail:'<svg viewBox="0 0 24 24" fill="#fff" stroke="#3a3a3a" stroke-width="1.5" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M3 6.5l9 6.5 9-6.5" fill="none"/></svg>',
+  menu:'<svg viewBox="0 0 24 24" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+  gift:'<svg viewBox="0 0 24 24" stroke="#7a3b2e" stroke-width="1.3" stroke-linejoin="round"><rect x="3" y="9" width="18" height="12" rx="1.5" fill="#e5462f"/><rect x="2" y="6" width="20" height="4" rx="1.2" fill="#f2704f"/><path d="M12 6v15" stroke="#ffd76a" stroke-width="2.4"/><path d="M12 6C9 6 7 3 9 2.4S12 4.5 12 6zM12 6c3 0 5-3 3-3.6S12 4.5 12 6z" fill="#ffd76a"/></svg>',
+  store:'<svg viewBox="0 0 24 24" stroke="#5b3a1e" stroke-width="1.2" stroke-linejoin="round"><path d="M3 9h18v11H3z" fill="#f6e7c9"/><path d="M2.5 5h19l1.2 4H1.3z" fill="#e5462f"/><path d="M5.3 5l-.8 4M9.1 5l-.4 4M14.9 5l.4 4M18.7 5l.8 4" stroke="#fff" stroke-width="1.6"/><rect x="9" y="13" width="6" height="7" fill="#b98a4e"/></svg>',
+};
+const btn=(id,svg,label,badge)=>`<button class="iconbtn" data-open="${id}"><span class="gl">${svg}</span><span class="lb">${label}</span>${badge?`<span class="badge">${badge}</span>`:''}</button>`;
+function buildHUD(){
+  el('topRight').innerHTML=btn('mypage',ICONS.crown,'マイページ')+btn('news',ICONS.mail,'お知らせ','!')+btn('menu',ICONS.menu,'メニュー');
+  el('sideRight').innerHTML=btn('gift',ICONS.gift,'プレゼント')+btn('shoplist',ICONS.store,'ショップ');
+  el('slots').innerHTML=SHOPS.map(s=>`<div class="slot" id="slot-${s.id}"></div>`).join('');
+  document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openPanel(b.dataset.open));
+}
+
+let AC=null;
+function beep(f,d,t){ if(!S.sound)return;
+  try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(),g=AC.createGain(); o.type=t||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(.0001,AC.currentTime); g.gain.exponentialRampToValueAtTime(.16,AC.currentTime+.02);
+    g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);
+    o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime+d+.02);}catch(e){}
+}
+const seOpen=()=>{beep(660,.09);setTimeout(()=>beep(880,.12),70);};
+const seStamp=()=>{beep(784,.1);setTimeout(()=>beep(1047,.1),90);setTimeout(()=>beep(1319,.22),180);};
+const seClose=()=>beep(420,.09,'triangle');
+let stepFlip=0;
+const seStep=()=>{ stepFlip^=1; beep(stepFlip?150:126,.05,'triangle'); };
+
+function bindInput(){
+  const map={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down',a:'left',d:'right',w:'up',s:'down'};
+  addEventListener('keydown',e=>{const k=map[e.key]; if(!k)return; e.preventDefault(); if(!IN[k]&&k==='up')tryAction(); IN[k]=true;});
+  addEventListener('keyup',e=>{const k=map[e.key]; if(k){e.preventDefault(); IN[k]=false;}});
+  const pad=el('pad'),knob=el('knob'); let active=false;
+  const set=(dx,dy)=>{const dead=18;
+    IN.left=dx<-dead; IN.right=dx>dead; IN.up=dy<-dead; IN.down=dy>dead;
+    pad.querySelectorAll('.ar').forEach(a=>a.classList.toggle('on',IN[a.dataset.d]));
+    const m=Math.min(1,Math.hypot(dx,dy)/78),ang=Math.atan2(dy,dx);
+    knob.style.transform=`translate(${Math.cos(ang)*m*52}px,${Math.sin(ang)*m*52}px)`;};
+  const clear=()=>{active=false; IN.left=IN.right=IN.up=IN.down=false;
+    pad.querySelectorAll('.ar').forEach(a=>a.classList.remove('on')); knob.style.transform='';};
+  const pos=e=>{const r=pad.getBoundingClientRect(),t=e.touches?e.touches[0]:e,sc=r.width/250;
+    return [(t.clientX-r.left)/sc-125,(t.clientY-r.top)/sc-125];};
+  pad.addEventListener('pointerdown',e=>{e.preventDefault(); active=true;
+    try{pad.setPointerCapture(e.pointerId);}catch(_){} const[x,y]=pos(e); if(y<-18)tryAction(); set(x,y);});
+  pad.addEventListener('pointermove',e=>{if(!active)return; e.preventDefault();
+    const[x,y]=pos(e); const was=IN.up; set(x,y); if(!was&&IN.up)tryAction();});
+  addEventListener('pointerup',clear); addEventListener('pointercancel',clear);
+}
+
+const shopAt=()=>SHOPS.find(s=>s.level===S.level && Math.abs(S.x-s.cx)<s.w/2+35 && !S.climbing)||null;
+const onLadder=()=>Math.abs(S.x-LADDER_X)<LADDER_HALF;
+function tryAction(){
+  if(el('veil').classList.contains('on'))return;
+  const s=shopAt(); if(s){enterShop(s); return;}
+  if(onLadder()&&(S.level==='ground'||S.climbing)) S.climbing=true;
+}
+
+let lastStep=0;
+function tick(){
+  const modal=el('veil').classList.contains('on');
+  let moving=false;
+  if(!modal){
+    if(S.climbing){
+      if(IN.up)S.y-=CLIMB; if(IN.down)S.y+=CLIMB;
+      if(IN.up||IN.down) moving=true;
+      if(S.y<=UPPER_Y){S.y=UPPER_Y; S.climbing=false; S.level='upper';}
+      if(S.y>=GROUND_Y){S.y=GROUND_Y; S.climbing=false; S.level='ground';}
+    }else{
+      if(IN.left){S.x-=SPEED; S.face=-1; moving=true;}
+      if(IN.right){S.x+=SPEED; S.face=1; moving=true;}
+      if(S.level==='upper'){
+        S.x=Math.max(PLAT_X+50,Math.min(PLAT_X+PLAT_W-50,S.x)); S.y=UPPER_Y;
+        if(IN.down&&onLadder()) S.climbing=true;
+      }else{ S.x=Math.max(90,Math.min(W-90,S.x)); S.y=GROUND_Y; }
+    }
+  }
+
+  /* ---- 歩行アニメーション ---- */
+  const pimg=el('pimg'), psh=el('pshadow');
+  if(moving) S.phase += S.climbing?0.20:0.30; else S.phase=0;
+  let tf='', shSc=1, shOp=.3;
+  if(S.climbing){
+    tf=`translateX(${Math.sin(S.phase)*4}px)`; shOp=0;
+  }else if(moving){
+    const bob=Math.abs(Math.sin(S.phase))*7;
+    tf=`translateY(${-bob}px) rotate(${Math.sin(S.phase)*3.5}deg)`;
+    shSc=1-bob/26; shOp=.3-bob/70;
+    const st=Math.floor(S.phase/Math.PI);
+    if(st!==lastStep){ lastStep=st; seStep(); }
+  }else{
+    tf=`scaleY(${1+Math.sin(performance.now()/650)*0.012})`;
+  }
+  pimg.style.transform=tf;
+  psh.style.transform=`translateX(-50%) scale(${shSc})`;
+  psh.style.opacity=shOp;
+
+  const p=el('player');
+  p.style.left=(S.x-60)+'px'; p.style.top=(S.y-132+SINK_CHAR)+'px';
+  const want=S.climbing?IMG.p_up:(S.face<0?IMG.p_l:IMG.p_r);
+  if(pimg.getAttribute('src')!==want) pimg.setAttribute('src',want);
+
+  const cam=Math.max(0,Math.min(W-SW,S.x-SW/2));
+  world.style.transform=`translateX(${-cam}px)`;
+  sky.style.transform=`translateX(${-cam*0.35}px)`;
+
+  const s=shopAt(), hn=el('hint');
+  if(s){ hn.textContent=S.visited.has(s.id)?'↑ もういちど見る':'↑ おみせに入る'; hn.classList.add('show'); }
+  else if(onLadder()&&!S.climbing&&S.level==='ground'){ hn.textContent='↑ のぼる'; hn.classList.add('show'); }
+  else hn.classList.remove('show');
+
+  SHOPS.forEach(v=>{
+    const near=v.level===S.level && Math.abs(S.x-v.npcX)<230;
+    const b=el('bub-'+v.id);
+    if(near&&!b.classList.contains('show')){ b.textContent=v.greet[Math.floor(Math.random()*v.greet.length)]; b.classList.add('show'); }
+    else if(!near) b.classList.remove('show');
+  });
+  requestAnimationFrame(tick);
+}
+
+function enterShop(s){
+  seOpen(); const first=!S.visited.has(s.id);
+  el('sheet').innerHTML=`
+    <h2>${s.name}</h2><span class="cat">${s.cat}</span>
+    <div class="shoprow">
+      <div class="shoppic"><img src="${IMG[s.img]}" alt="${s.name}"></div>
+      <div><p>${s.desc}</p>
+        <div class="photos">
+          <div class="cell">店内写真 ①<em>800×600（未設定）</em></div>
+          <div class="cell">店内写真 ②<em>800×600（未設定）</em></div>
+        </div>
+      </div>
+    </div>
+    <div class="rowbtn">
+      <button class="bigbtn go" id="ecGo">🛒 オンラインストアへ</button>
+      <button class="bigbtn close" id="shClose">とじる</button>
+    </div>`;
+  el('veil').classList.add('on');
+  el('shClose').onclick=closePanel;
+  el('ecGo').onclick=()=>toast('店舗のECサイトへ移動します');
+  if(first) setTimeout(()=>giveStamp(s),420);
+}
+function giveStamp(s){
+  S.visited.add(s.id);
+  const slot=el('slot-'+s.id);
+  slot.innerHTML=`<img src="${IMG[s.img]}" alt="">`;
+  slot.style.background='#ffe9b0'; slot.style.borderColor='#4a3418';
+  slot.classList.add('pop'); setTimeout(()=>slot.classList.remove('pop'),320);
+  el('badge-'+s.id).classList.add('on');
+  seStamp(); toast('スタンプ ゲット！');
+  const left=SHOPS.length-S.visited.size;
+  el('stampHint').textContent=left>0?`のこり ${left} 店舗！`:'ぜんぶ集めた！称号ゲット🏆';
+  if(left===0) setTimeout(()=>toast('称号「町の常連」をゲット🏆'),1500);
+}
+
+function openPanel(kind){
+  seOpen(); const sh=el('sheet');
+  const done=S.visited.size,total=SHOPS.length;
+  if(kind==='mypage'){
+    sh.innerHTML=`<h2>マイページ</h2>
+      <div class="shoprow" style="grid-template-columns:220px 1fr">
+        <div class="shoppic" style="height:220px"><img src="${IMG.p_r}" alt=""></div>
+        <div><p style="font-size:25px"><b>プレイヤー</b></p>
+        <p>おとずれたお店：<b>${done} / ${total}</b><br>あるいた距離：<b>${Math.round(S.x)} m</b></p></div>
+      </div><div class="rowbtn"><button class="bigbtn close" id="c">とじる</button></div>`;
+  }else if(kind==='news'){
+    sh.innerHTML=`<h2>お知らせ</h2>
+      <p>🌸 <b>ようこそ TownWalk へ！</b><br>ジョイスティックで歩いて、お店の前で「↑」を押すと中に入れるよ。</p>
+      <p>🪜 <b>はしごをのぼってみよう</b><br>左のはしごの前で「↑」を押すと、2かいのお店に行けるよ。</p>
+      <div class="rowbtn"><button class="bigbtn close" id="c">とじる</button></div>`;
+  }else if(kind==='gift'){
+    sh.innerHTML=`<h2>プレゼント</h2><p>いまは受け取れるプレゼントはありません。<br>スタンプを集めるとアイテムがとどきます！</p>
+      <div class="rowbtn"><button class="bigbtn close" id="c">とじる</button></div>`;
+  }else if(kind==='shoplist'){
+    sh.innerHTML=`<h2>ショップ一覧</h2><div class="menulist">`
+      +SHOPS.map(s=>`<button data-go="${s.id}"><img src="${IMG[s.img]}" alt="">${S.visited.has(s.id)?'✅':'⬜️'}　${s.name}　<span style="opacity:.6;font-size:19px">${s.cat}</span></button>`).join('')
+      +`</div><div class="rowbtn" style="margin-top:16px"><button class="bigbtn close" id="c">とじる</button></div>`;
+  }else{
+    sh.innerHTML=`<h2>メニュー</h2><div class="menulist">
+      <button>🧑 アバターを変える</button>
+      <button>✉️ アカウント情報（メール・パスワード）</button>
+      <button>📄 利用規約</button>
+      <button>🔒 プライバシーポリシー</button>
+      <button id="snd">${S.sound?'🔊 音：オン':'🔇 音：オフ'}</button>
+      <button class="danger">↩ ログアウト</button>
+      <button class="danger">⚠️ 退会</button>
+      </div><div class="rowbtn" style="margin-top:16px"><button class="bigbtn close" id="c">とじる</button></div>`;
+  }
+  el('veil').classList.add('on');
+  const c=el('c'); if(c)c.onclick=closePanel;
+  const sn=el('snd'); if(sn)sn.onclick=()=>{S.sound=!S.sound; sn.textContent=S.sound?'🔊 音：オン':'🔇 音：オフ'; if(S.sound)beep(700,.1);};
+  sh.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{
+    const s=SHOPS.find(v=>v.id===b.dataset.go);
+    S.x=s.cx; S.level=s.level; S.y=s.level==='upper'?UPPER_Y:GROUND_Y; S.climbing=false;
+    closePanel(); setTimeout(()=>enterShop(s),260);
+  });
+}
+function closePanel(){ seClose(); el('veil').classList.remove('on'); }
+el('veil').addEventListener('click',e=>{ if(e.target.id==='veil') closePanel(); });
+
+let tT=null;
+function toast(m){const t=el('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove('on'),1800);}
+
+const NOTICES=['【お知らせ】ようこそ、TownWalkへ！','【ヒント】お店の前で「↑」を押すと中に入れるよ',
+  '【ヒント】左のはしごから2かいへ行けるよ','【お知らせ】スタンプを集めると称号がもらえます'];
+let ni=0; setInterval(()=>{ni=(ni+1)%NOTICES.length; el('noticeText').textContent=NOTICES[ni];},6000);
+
+function fit(){ stage.style.transform=`scale(${Math.min(innerWidth/SW,innerHeight/SH)})`; }
+addEventListener('resize',fit);
+
+buildWorld(); buildHUD(); bindInput(); fit(); tick();
+</script>
+
+</body>
+</html>
