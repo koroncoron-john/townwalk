@@ -511,7 +511,11 @@ async function loadTitles(){
     <tr><td><b>${esc(t.name)}</b></td><td>${esc(t.description)}</td><td>${t.sort_order}</td></tr>`).join('');
 }
 
-sb.auth.onAuthStateChange((_e, s) => { if (!s) location.reload(); });
+// 明示的なサインアウト時だけ再読み込みする。
+// （セッション無しで reload すると、起動時の INITIAL_SESSION で無限ループになる）
+sb.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT') location.reload();
+});
 boot();
 </script>
 </body>
