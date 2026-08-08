@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="assets/icon-512.png">
 <link rel="icon" href="assets/icon-192.png">
 <link rel="preload" as="font" type="font/woff2" href="assets/mp1.woff2" crossorigin>
 <link rel="preload" as="image" href="assets/bg.webp">
@@ -27,7 +28,21 @@
   --font:'MP1','Hiragino Maru Gothic ProN','Hiragino Sans',system-ui,sans-serif;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-html,body{margin:0; height:100%; overflow:hidden; background:#0e1620; font-family:var(--font);}
+html,body{
+  margin:0; height:100%; overflow:hidden; background:#0e1620; font-family:var(--font);
+  /* iOS: 長押しの「コピー/保存」メニュー・文字選択・ダブルタップ拡大を止める */
+  -webkit-touch-callout:none;
+  -webkit-user-select:none; user-select:none;
+  touch-action:manipulation;
+  overscroll-behavior:none;
+}
+/* 画像の長押しで「画像を保存」が出るのを防ぐ。クリックは親のボタンが受ける */
+img{
+  -webkit-touch-callout:none; -webkit-user-drag:none;
+  pointer-events:none; user-select:none;
+}
+/* 入力欄だけは選択・コピーできるようにしておく */
+input,textarea{-webkit-user-select:text; user-select:text; -webkit-touch-callout:default;}
 
 #viewport{position:fixed; inset:0; display:flex; align-items:center; justify-content:center;}
 #stage{
@@ -539,6 +554,10 @@ function toast(m){const t=el('toast'); t.textContent=m; t.classList.add('on'); c
 let NOTICE_TEXTS=['【お知らせ】ようこそ、TownWalkへ！'];
 let ni=0; setInterval(()=>{ni=(ni+1)%NOTICE_TEXTS.length; el('noticeText').textContent=NOTICE_TEXTS[ni];},6000);
 
+/* iOS: ピンチ拡大・ダブルタップ拡大・長押しメニューを抑止 */
+['gesturestart','gesturechange','gestureend'].forEach(t=>
+  addEventListener(t, e=>e.preventDefault(), {passive:false}));
+addEventListener('contextmenu', e=>e.preventDefault());
 function fit(){ stage.style.transform=`scale(${Math.min(innerWidth/SW,innerHeight/SH)})`; }
 addEventListener('resize',fit);
 
@@ -567,6 +586,11 @@ const DB = {
     if(this.sb){
       const { data, error } = await this.sb.from('published_shops').select('*');
       if(error) console.warn('店舗の取得に失敗', error); else rows=data;
+    }
+    if(rows && rows.length){
+      try{ localStorage.setItem('townwalk_shops', JSON.stringify(rows)); }catch(_){}
+    }else{
+      try{ rows = JSON.parse(localStorage.getItem('townwalk_shops')||'null'); }catch(_){}
     }
     if(!rows || !rows.length) return [];
     return rows.map(r=>{
@@ -709,6 +733,10 @@ function syncStampCard(){
   }
   await DB.loadGreetings(SHOPS);
   buildWorld(); buildHUD(); bindInput(); fit(); tick();
+
+  if('serviceWorker' in navigator && location.protocol==='https:'){
+    navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW登録失敗',e));
+  }
 
   const ids = await DB.loadStamps();
   ids.forEach(id=>S.visited.add(id));
