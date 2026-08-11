@@ -3,7 +3,7 @@
    - HTML と config.js はネット優先（更新をすぐ反映）
    - Supabase など別ドメインへの通信には触らない
 */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE   = `townwalk-${VERSION}`;
 
 const SHELL = [
@@ -12,8 +12,11 @@ const SHELL = [
   './config.js?v=2',
   './manifest.webmanifest',
   './assets/mp1.woff2',
-  './assets/bg.webp',
-  './assets/ground.webp',
+  './assets/bg_spring.webp',
+  './assets/bg_summer.webp',
+  './assets/bg_autumn.webp',
+  './assets/bg_winter.webp',
+  './assets/ground_tile.webp',
   './assets/platform.webp',
   './assets/ladder.webp',
   './assets/shop_shop.webp',

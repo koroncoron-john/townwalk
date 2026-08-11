@@ -196,7 +196,7 @@ input[type=range]{width:100%;}
         <div><label>店長の横ずれ</label><input type="number" id="f_npcoff" step="10"></div>
       </div>
       <label style="margin-top:4px">横位置をスライダーで調整</label>
-      <input type="range" id="f_xr" min="0" max="2600" step="5">
+      <input type="range" id="f_xr" min="0" max="9600" step="10">
       <div class="grid2">
         <div><label>表示幅</label><input type="number" id="f_w" step="1"></div>
         <div><label>表示高さ</label><input type="number" id="f_h" step="1"></div>
@@ -404,6 +404,13 @@ function fitPreview(){
   return sc;
 }
 
+// 置ける X の範囲。1階は連続、2階は足場ごとに分かれる
+function allowedBands(floor){
+  if (floor === 'upper')
+    return L.PLATFORMS.map(p => [p.x + L.PLAT_MARGIN, p.x + p.w - L.PLAT_MARGIN]);
+  return [L.GROUND_RANGE];
+}
+
 function drawPreview(){
   if (!CUR) return;
   fitPreview();
@@ -418,16 +425,27 @@ function drawPreview(){
 
   let html = '';
   // 背景・地面・足場・はしご
+  const season = C.currentSeason();
   html += `<div class="l" style="left:0;top:0;width:${L.W}px;height:${L.SH}px">
-             <img src="assets/bg.webp" style="object-fit:cover;object-position:center 62%" alt=""></div>`;
-  html += `<div class="l" style="left:0;top:${L.GROUND_TOP}px;width:${L.W}px;height:${L.GROUND_H}px"><img src="assets/ground.webp" alt=""></div>`;
-  html += `<div class="l" style="left:${L.PLAT_X}px;top:${L.PLAT_TOP}px;width:${L.PLAT_W}px;height:${L.PLAT_H}px"><img src="assets/platform.webp" alt=""></div>`;
-  html += `<div class="l" style="left:${L.LADDER_X - L.LADDER_W/2}px;top:${L.LADDER_TOP}px;width:${L.LADDER_W}px;height:${L.LADDER_H}px"><img src="assets/ladder.webp" alt=""></div>`;
+             <img src="assets/${season.key}.webp" style="object-fit:cover;object-position:center 62%" alt=""></div>`;
+  html += `<div class="l" style="left:0;top:${L.GROUND_TOP}px;width:${L.W}px;height:${L.GROUND_H}px;`
+        + `background:url(assets/ground_tile.webp) repeat-x left bottom/auto ${L.GROUND_H}px"></div>`;
+  L.PLATFORMS.forEach(pf => {
+    html += `<div class="l" style="left:${pf.x}px;top:${L.PLAT_TOP}px;width:${pf.w}px;height:${L.PLAT_H}px"><img src="assets/platform.webp" alt=""></div>`;
+  });
+  L.LADDERS.forEach(lx => {
+    html += `<div class="l" style="left:${lx - L.LADDER_W/2}px;top:${L.LADDER_TOP}px;width:${L.LADDER_W}px;height:${L.LADDER_H}px"><img src="assets/ladder.webp" alt=""></div>`;
+  });
 
   // 配置できない範囲を赤く示す
-  const [lo, hi] = L.RANGE[floor];
-  html += `<div class="oob" style="left:0;width:${lo}px"></div>`;
-  html += `<div class="oob" style="left:${hi}px;width:${L.W - hi}px"></div>`;
+  // 置ける範囲（緑）以外を赤の斜線に
+  const bands = allowedBands(floor);
+  let cursor = 0;
+  bands.forEach(([a, b]) => {
+    if (a > cursor) html += `<div class="oob" style="left:${cursor}px;width:${a - cursor}px"></div>`;
+    cursor = b;
+  });
+  if (cursor < L.W) html += `<div class="oob" style="left:${cursor}px;width:${L.W - cursor}px"></div>`;
 
   // 他の店舗（薄く）
   SHOPS.filter(s => s.id !== CUR.id && s.status === 'published').forEach(s => {
@@ -452,7 +470,11 @@ function drawPreview(){
 
   // 警告表示
   const msgs = [];
-  if (x < lo || x > hi) msgs.push(`<span class="warn">X が範囲外（${floor === 'upper' ? '2階' : '1階'}は ${lo}〜${hi}）</span>`);
+  if (!bands.some(([a, b]) => x >= a && x <= b)) {
+    msgs.push(floor === 'upper'
+      ? `<span class="warn">2階は足場の上（${bands.map(([a,b])=>a+'〜'+b).join(' / ')}）に置いてください</span>`
+      : `<span class="warn">X が範囲外（1階は ${bands[0][0]}〜${bands[0][1]}）</span>`);
+  }
   const hit = SHOPS.find(s => s.id !== CUR.id && s.status === 'published' && s.floor === floor
                             && Math.abs(s.pos_x - x) < (s.display_w + w) / 2);
   if (hit) msgs.push(`<span class="warn">「${esc(hit.name)}」と重なっています</span>`);

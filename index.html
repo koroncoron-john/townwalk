@@ -14,8 +14,7 @@
 <link rel="apple-touch-icon" sizes="512x512" href="assets/icon-512.png">
 <link rel="icon" href="assets/icon-192.png">
 <link rel="preload" as="font" type="font/woff2" href="assets/mp1.woff2" crossorigin>
-<link rel="preload" as="image" href="assets/bg.webp">
-<link rel="preload" as="image" href="assets/ground.webp">
+<link rel="preload" as="image" href="assets/ground_tile.webp">
 </head>
 <body>
 <style>
@@ -50,9 +49,9 @@ input,textarea{-webkit-user-select:text; user-select:text; -webkit-touch-callout
   overflow:hidden; background:#8fd4f2; user-select:none;
 }
 
-#sky{position:absolute; left:0; top:0; width:2100px; height:864px;}
+#sky{position:absolute; left:0; top:0; height:864px;}   /* 幅は起動時に算出 */
 #sky img{width:100%; height:100%; object-fit:cover; object-position:center 62%; display:block;}
-#world{position:absolute; left:0; top:0; width:2600px; height:864px;}
+#world{position:absolute; left:0; top:0; height:864px;} /* 幅は起動時に算出 */
 .ent{position:absolute;}
 .ent img{display:block; width:100%; height:100%; object-fit:contain; object-position:center bottom;}
 
@@ -227,7 +226,7 @@ input,textarea{-webkit-user-select:text; user-select:text; -webkit-touch-callout
 
 <div id="viewport">
   <div id="stage">
-    <div id="sky"><img src="assets/bg.webp" alt=""></div>
+    <div id="sky"><img id="skyimg" src="assets/bg_summer.webp" alt=""></div>
     <div id="world"></div>
 
     <div class="hud" id="stampCard">
@@ -259,7 +258,7 @@ input,textarea{-webkit-user-select:text; user-select:text; -webkit-touch-callout
 <script src="config.js?v=2"></script>
 <script type="module">
 const IMG={
-  bg:'assets/bg.webp', ground:'assets/ground.webp', platform:'assets/platform.webp', ladder:'assets/ladder.webp',
+  groundTile:'assets/ground_tile.webp', platform:'assets/platform.webp', ladder:'assets/ladder.webp',
   shop_shop:'assets/shop_shop.webp', shop_flower:'assets/shop_flower.webp', shop_store:'assets/shop_store.webp', shop_sea:'assets/shop_sea.webp',
   npc1:'assets/npc1.webp', npc2:'assets/npc2.webp', npc3:'assets/npc3.webp',
   npc4:'assets/npc4.webp', npc5:'assets/npc5.webp', npc6:'assets/npc6.webp',
@@ -276,10 +275,13 @@ const L = window.TW_CONFIG.LAYOUT;              // 管理画面プレビュー�
 const W=L.W, SW=1536, SH=L.SH;
 const GROUND_Y=L.GROUND_Y, UPPER_Y=L.UPPER_Y;
 const GROUND_H=L.GROUND_H, GROUND_TOP=L.GROUND_TOP;
-const PLAT_X=L.PLAT_X, PLAT_W=L.PLAT_W, PLAT_H=L.PLAT_H, PLAT_TOP=L.PLAT_TOP;
-const LADDER_X=L.LADDER_X, LADDER_W=L.LADDER_W, LADDER_TOP=L.LADDER_TOP, LADDER_H=L.LADDER_H, LADDER_HALF=58;
+const PLAT_H=L.PLAT_H, PLAT_TOP=L.PLAT_TOP;
+const PLATFORMS=L.PLATFORMS, LADDERS=L.LADDERS;
+const LADDER_W=L.LADDER_W, LADDER_TOP=L.LADDER_TOP, LADDER_H=L.LADDER_H, LADDER_HALF=L.LADDER_HALF;
 const SINK_SHOP=L.SINK_SHOP, SINK_CHAR=L.SINK_CHAR;
 const SPEED=5.4, CLIMB=4.6;
+const SKY_W=2000;                                  // 背景画像は1800px。ほぼ等倍で使う
+const PARALLAX=(SKY_W-SW)/Math.max(1,(W-SW));      // 端まで使い切る係数
 
 /* 店舗データは Supabase から読み込む（管理画面で編集できる） */
 let SHOPS=[];
@@ -291,9 +293,16 @@ const stage=el('stage'), world=el('world'), sky=el('sky');
 
 function buildWorld(){
   let h='';
-  h+=`<div class="ent" style="left:0;top:${GROUND_TOP}px;width:${W}px;height:${GROUND_H}px;z-index:3"><img src="${IMG.ground}" alt=""></div>`;
-  h+=`<div class="ent" style="left:${PLAT_X}px;top:${PLAT_TOP}px;width:${PLAT_W}px;height:${PLAT_H}px;z-index:4"><img src="${IMG.platform}" alt=""></div>`;
-  h+=`<div class="ent" style="left:${LADDER_X-LADDER_W/2}px;top:${LADDER_TOP}px;width:${LADDER_W}px;height:${LADDER_H}px;z-index:6"><img src="${IMG.ladder}" alt=""></div>`;
+  // 地面：継ぎ目のないタイルを横に繰り返す
+  h+=`<div class="ent" style="left:0;top:${GROUND_TOP}px;width:${W}px;height:${GROUND_H}px;z-index:3;`
+    +`background:url(${IMG.groundTile}) repeat-x left bottom/auto ${GROUND_H}px"></div>`;
+  // 2階の足場と、それぞれに付く縄ばしご
+  PLATFORMS.forEach(pf=>{
+    h+=`<div class="ent" style="left:${pf.x}px;top:${PLAT_TOP}px;width:${pf.w}px;height:${PLAT_H}px;z-index:4"><img src="${IMG.platform}" alt=""></div>`;
+  });
+  LADDERS.forEach(lx=>{
+    h+=`<div class="ent" style="left:${lx-LADDER_W/2}px;top:${LADDER_TOP}px;width:${LADDER_W}px;height:${LADDER_H}px;z-index:6"><img src="${IMG.ladder}" alt=""></div>`;
+  });
   SHOPS.forEach((s,i)=>{
     const base = s.level==='upper'?UPPER_Y:GROUND_Y;
     h+=`<div class="ent" style="left:${s.cx-s.w/2}px;top:${base-s.h+SINK_SHOP}px;width:${s.w}px;height:${s.h}px;z-index:${s.level==='upper'?10:20}">`
@@ -359,7 +368,7 @@ function bindInput(){
 }
 
 const shopAt=()=>SHOPS.find(s=>s.level===S.level && Math.abs(S.x-s.cx)<s.w/2+35 && !S.climbing)||null;
-const onLadder=()=>Math.abs(S.x-LADDER_X)<LADDER_HALF;
+const onLadder=()=>LADDERS.some(lx=>Math.abs(S.x-lx)<LADDER_HALF);
 function tryAction(){
   if(el('veil').classList.contains('on'))return;
   const s=shopAt(); if(s){enterShop(s); return;}
@@ -380,7 +389,8 @@ function tick(){
       if(IN.left){S.x-=SPEED; S.face=-1; moving=true;}
       if(IN.right){S.x+=SPEED; S.face=1; moving=true;}
       if(S.level==='upper'){
-        S.x=Math.max(PLAT_X+50,Math.min(PLAT_X+PLAT_W-50,S.x)); S.y=UPPER_Y;
+        const pf = PLATFORMS.find(p=>S.x>=p.x-40 && S.x<=p.x+p.w+40) || PLATFORMS[0];
+        S.x=Math.max(pf.x+50,Math.min(pf.x+pf.w-50,S.x)); S.y=UPPER_Y;
         if(IN.down&&onLadder()) S.climbing=true;
       }else{ S.x=Math.max(90,Math.min(W-90,S.x)); S.y=GROUND_Y; }
     }
@@ -412,7 +422,7 @@ function tick(){
 
   const cam=Math.max(0,Math.min(W-SW,S.x-SW/2));
   world.style.transform=`translateX(${-cam}px)`;
-  sky.style.transform=`translateX(${-cam*0.35}px)`;
+  sky.style.transform=`translateX(${-cam*PARALLAX}px)`;
 
   const s=shopAt(), hn=el('hint');
   if(s){ hn.textContent=S.visited.has(s.id)?'↑ もういちど見る':'↑ おみせに入る'; hn.classList.add('show'); }
@@ -725,6 +735,16 @@ function syncStampCard(){
 
 /* ---------------- 起動 ---------------- */
 (async function start(){
+  // 季節の背景（実際の月で切り替え：3-5春 / 6-8夏 / 9-11秋 / 12-2冬）
+  const season = window.TW_CONFIG.currentSeason();
+  el('skyimg').src = `assets/${season.key}.webp`;
+
+  // 横スクロール領域に合わせて世界と空の幅を決める
+  world.style.width = W + 'px';
+  // 空は背景画像(1800px)を引き伸ばしすぎない幅に固定し、
+  // その余白ぶんだけをスクロール全体に配分する（遠景なので動きは控えめでよい）
+  sky.style.width = SKY_W + 'px';
+
   await DB.init();
   SHOPS = await DB.loadShops();
   if(!SHOPS.length){
